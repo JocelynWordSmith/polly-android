@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Arduino Uno (FTDI) -->
+    <usb-device vendor-id="1027" product-id="24577" />
+    <!-- Arduino Uno (CH340) -->
+    <usb-device vendor-id="6790" product-id="29987" />
+    <!-- Generic FTDI -->
+    <usb-device vendor-id="1027" />
+    <!-- Generic CH340 -->
+    <usb-device vendor-id="6790" />
+</resources>
