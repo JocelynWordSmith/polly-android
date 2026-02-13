@@ -15,10 +15,12 @@
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            app:title="Polly"
-            app:titleTextColor="@android:color/white"
+            android:layout_height="40dp"
+            android:minHeight="40dp"
+            android:background="#252522"
+            app:title="▓▓ POLLY CONTROL TERMINAL"
+            app:titleTextColor="#F5F3E8"
+            app:titleTextAppearance="@style/CompactToolbarTitle"
             app:menu="@menu/toolbar_menu" />
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -35,11 +37,19 @@
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
+        android:background="#1E1E1C"
+        android:paddingTop="0dp"
+        android:paddingBottom="0dp"
         app:menu="@menu/bottom_nav_menu"
         app:labelVisibilityMode="labeled"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
+        app:itemIconSize="16dp"
+        app:itemPaddingTop="4dp"
+        app:itemPaddingBottom="4dp"
+        app:itemRippleColor="@android:color/transparent"
+        app:itemActiveIndicatorStyle="@null"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

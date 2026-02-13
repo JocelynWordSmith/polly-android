@@ -1,15 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/nav_pixel"
+        android:id="@+id/nav_polly"
         android:icon="@android:drawable/ic_menu_camera"
-        android:title="Pixel" />
+        android:title="POLLY" />
     <item
         android:id="@+id/nav_arduino"
         android:icon="@android:drawable/ic_menu_info_details"
-        android:title="Arduino" />
+        android:title="ARDUINO" />
     <item
         android:id="@+id/nav_lidar"
         android:icon="@android:drawable/ic_menu_mylocation"
         android:title="LIDAR" />
+    <item
+        android:id="@+id/nav_flir"
+        android:icon="@android:drawable/ic_menu_gallery"
+        android:title="THERMAL" />
+    <item
+        android:id="@+id/nav_logs"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="LOGS" />
 </menu>

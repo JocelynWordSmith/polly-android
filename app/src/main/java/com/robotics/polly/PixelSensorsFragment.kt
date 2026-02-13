@@ -33,7 +33,6 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.abs
@@ -45,7 +44,6 @@ class PixelSensorsFragment : Fragment(), SensorEventListener, LocationListener {
     private lateinit var sensorDataText: TextView
     private lateinit var logText: TextView
     private lateinit var cameraPreview: PreviewView
-    private lateinit var rotateButton: FloatingActionButton
     private lateinit var logsBottomSheet: MaterialCardView
     private lateinit var logsHeader: View
     private lateinit var clearLogsButton: Button
@@ -54,7 +52,6 @@ class PixelSensorsFragment : Fragment(), SensorEventListener, LocationListener {
     private lateinit var locationManager: LocationManager
     private lateinit var batteryManager: BatteryManager
     private lateinit var cameraExecutor: ExecutorService
-    private var cameraRotation = 0  // 0, 90, 180, 270 (in degrees)
     private var cameraProvider: ProcessCameraProvider? = null
     private var preview: Preview? = null
     
@@ -95,30 +92,9 @@ class PixelSensorsFragment : Fragment(), SensorEventListener, LocationListener {
         sensorDataText = view.findViewById(R.id.sensorDataText)
         logText = view.findViewById(R.id.logText)
         cameraPreview = view.findViewById(R.id.cameraPreview)
-        rotateButton = view.findViewById(R.id.rotateButton)
         logsBottomSheet = view.findViewById(R.id.logsBottomSheet)
         logsHeader = view.findViewById(R.id.logsHeader)
         clearLogsButton = view.findViewById(R.id.clearLogsButton)
-        
-        // Set up camera rotation button  
-        rotateButton.setOnClickListener {
-            cameraRotation = (cameraRotation + 90) % 360
-            
-            // Rotate the entire view
-            cameraPreview.animate()
-                .rotation(cameraRotation.toFloat())
-                .setDuration(200)
-                .start()
-            
-            // Visual feedback
-            android.widget.Toast.makeText(
-                requireContext(), 
-                "Camera rotated to $cameraRotation° (visual rotation only)", 
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-            
-            LogManager.info("Camera view rotated to $cameraRotation° (note: camera image orientation is controlled by device sensor)")
-        }
         
         // Set up bottom sheet
         bottomSheetBehavior = BottomSheetBehavior.from(logsBottomSheet)

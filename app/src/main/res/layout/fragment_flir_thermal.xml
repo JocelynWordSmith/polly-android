@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#000000">
+
+    <!-- Header -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🌡️ FLIR ONE Thermal"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:paddingBottom="8dp"
+        android:layout_gravity="center_horizontal" />
+
+    <!-- Status Text -->
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Initializing..."
+        android:textSize="14sp"
+        android:textColor="#AAAAAA"
+        android:paddingBottom="16dp"
+        android:layout_gravity="center_horizontal" />
+
+    <!-- Thermal Image Display -->
+    <ImageView
+        android:id="@+id/thermalImageView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:scaleType="fitCenter"
+        android:background="#222222"
+        android:contentDescription="Thermal camera feed" />
+
+    <!-- Instructions -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Connect FLIR ONE via USB-C or Lightning"
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:paddingTop="16dp"
+        android:layout_gravity="center_horizontal" />
+
+</LinearLayout>

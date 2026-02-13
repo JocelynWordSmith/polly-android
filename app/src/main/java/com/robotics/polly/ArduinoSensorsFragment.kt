@@ -13,7 +13,6 @@ import org.json.JSONObject
 class ArduinoSensorsFragment : Fragment() {
     
     private lateinit var arduinoDataText: TextView
-    private lateinit var logText: TextView
     private val handler = Handler(Looper.getMainLooper())
     
     private var lastSensorData: JSONObject? = null
@@ -37,14 +36,6 @@ class ArduinoSensorsFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_arduino_sensors, container, false)
         
         arduinoDataText = view.findViewById(R.id.arduinoDataText)
-        logText = view.findViewById(R.id.logText)
-        
-        // Listen to logs
-        LogManager.addListener { _ ->
-            activity?.runOnUiThread {
-                updateLog()
-            }
-        }
         
         // Listen to Arduino responses
         val mainActivity = activity as? MainActivity
@@ -60,7 +51,6 @@ class ArduinoSensorsFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         handler.post(pollRunnable)
-        updateLog()
     }
     
     override fun onPause() {
@@ -185,10 +175,6 @@ class ArduinoSensorsFragment : Fragment() {
         }
         
         arduinoDataText.text = output
-    }
-    
-    private fun updateLog() {
-        logText.text = LogManager.getFormattedLogs()
     }
     
     override fun onDestroyView() {

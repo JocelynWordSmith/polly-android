@@ -6,14 +6,16 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 
 class ViewPagerAdapter(activity: FragmentActivity) : FragmentStateAdapter(activity) {
     
-    override fun getItemCount(): Int = 3
+    override fun getItemCount(): Int = 5
     
     override fun createFragment(position: Int): Fragment {
         return when (position) {
-            0 -> PixelSensorsFragment()
-            1 -> ArduinoSensorsFragment()
+            0 -> PollyFragmentCompose()
+            1 -> ArduinoFragmentCompose()
             2 -> LidarFragment()
-            else -> PixelSensorsFragment()
+            3 -> FlirThermalFragment()
+            4 -> LogsFragmentCompose()
+            else -> PollyFragmentCompose()
         }
     }
 }

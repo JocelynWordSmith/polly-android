@@ -34,29 +34,4 @@
         </LinearLayout>
     </ScrollView>
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="📋 Log"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:paddingTop="8dp"
-        android:paddingBottom="4dp" />
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="150dp"
-        android:background="#1E1E1E">
-
-        <TextView
-            android:id="@+id/logText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textSize="10sp"
-            android:fontFamily="monospace"
-            android:textColor="#FFFFFF"
-            android:padding="8dp" />
-    </ScrollView>
-
 </LinearLayout>

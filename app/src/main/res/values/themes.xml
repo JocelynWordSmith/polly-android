@@ -1,8 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
-        <item name="colorPrimary">#6200EE</item>
-        <item name="colorPrimaryVariant">#3700B3</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
+    <!-- Base application theme - TUI Aesthetic -->
+    <style name="AppTheme" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Faded black jeans background -->
+        <item name="colorPrimary">#3A5C46</item>          <!-- AccentEmerald -->
+        <item name="colorOnPrimary">#F5F3E8</item>        <!-- TextPrimary -->
+        <item name="colorPrimaryContainer">#2E5C3E</item> <!-- AccentEmeraldDim -->
+        
+        <item name="colorSecondary">#6B3939</item>        <!-- AccentGarnet -->
+        <item name="colorOnSecondary">#F5F3E8</item>
+        
+        <item name="android:colorBackground">#1E1E1C</item> <!-- BackgroundPrimary -->
+        <item name="colorSurface">#252522</item>            <!-- BackgroundSecondary -->
+        <item name="colorOnSurface">#F5F3E8</item>          <!-- TextPrimary -->
+        
+        <item name="colorOutline">#3A3A36</item>            <!-- GridLines -->
+        
+        <!-- Status bar -->
+        <item name="android:statusBarColor">#1E1E1C</item>
+        <item name="android:windowLightStatusBar">false</item>
+        
+        <!-- Navigation bar -->
+        <item name="android:navigationBarColor">#1E1E1C</item>
     </style>
 </resources>

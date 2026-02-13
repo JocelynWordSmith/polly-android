@@ -42,9 +42,11 @@ class MainActivity : AppCompatActivity() {
         
         bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_pixel -> viewPager.currentItem = 0
+                R.id.nav_polly -> viewPager.currentItem = 0
                 R.id.nav_arduino -> viewPager.currentItem = 1
                 R.id.nav_lidar -> viewPager.currentItem = 2
+                R.id.nav_flir -> viewPager.currentItem = 3
+                R.id.nav_logs -> viewPager.currentItem = 4
             }
             true
         }
@@ -110,12 +112,21 @@ class MainActivity : AppCompatActivity() {
     
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_settings -> {
+                showSettingsDialog()
+                true
+            }
             R.id.action_restart -> {
                 restartApp()
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+    
+    private fun showSettingsDialog() {
+        val intent = Intent(this, SettingsActivity::class.java)
+        startActivity(intent)
     }
     
     private fun restartApp() {

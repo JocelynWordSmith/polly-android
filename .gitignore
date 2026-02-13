@@ -81,3 +81,8 @@ fastlane/readme.md
 
 # Logs
 *.log
+
+
+app/libs/flironesdk.aar
+app/src/main/jniLibs/armeabi-v7a/libsystemimage.so
+app/src/main/jniLibs/armeabi-v7a/libmbwrapper.so

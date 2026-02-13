@@ -8,4 +8,10 @@
     <usb-device vendor-id="1027" />
     <!-- Generic CH340 -->
     <usb-device vendor-id="6790" />
+    
+    <!-- FLIR ONE Thermal Camera -->
+    <!-- FLIR Systems vendor ID -->
+    <usb-device vendor-id="2507" />
+    <!-- Alternative FLIR vendor ID -->
+    <usb-device vendor-id="9899" />
 </resources>
