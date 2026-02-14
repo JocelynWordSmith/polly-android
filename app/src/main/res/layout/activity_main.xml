@@ -17,9 +17,9 @@
             android:layout_width="match_parent"
             android:layout_height="40dp"
             android:minHeight="40dp"
-            android:background="#252522"
-            app:title="▓▓ POLLY CONTROL TERMINAL"
-            app:titleTextColor="#F5F3E8"
+            android:background="#EBE8E0"
+            app:title="POLLY BRIDGE"
+            app:titleTextColor="#0A3D6B"
             app:titleTextAppearance="@style/CompactToolbarTitle"
             app:menu="@menu/toolbar_menu" />
 
@@ -38,7 +38,7 @@
         android:id="@+id/bottomNav"
         android:layout_width="0dp"
         android:layout_height="48dp"
-        android:background="#1E1E1C"
+        android:background="#EBE8E0"
         android:paddingTop="0dp"
         android:paddingBottom="0dp"
         app:menu="@menu/bottom_nav_menu"

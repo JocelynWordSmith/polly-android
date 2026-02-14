@@ -4,46 +4,49 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// ═══════════════════════════════════════════════════════════
-// COLOR PALETTE - HIGH-END TUI AESTHETIC
-// ═══════════════════════════════════════════════════════════
+// =============================================================
+// COLOR PALETTE - BLUEPRINT / TECHNICAL SCHEMATIC
+// =============================================================
 
-// Faded black jeans - washed out, lived-in black
-val BackgroundPrimary = Color(0xFF1E1E1C)       // Main background
-val BackgroundSecondary = Color(0xFF252522)     // Cards, panels
-val BackgroundTertiary = Color(0xFF2C2C28)      // Elevated surfaces
+// Warm cream paper backgrounds
+val BackgroundPrimary = Color(0xFFF5F3EE)        // Main background
+val BackgroundSecondary = Color(0xFFEBE8E0)      // Cards, panels
+val BackgroundTertiary = Color(0xFFE0DDD5)       // Elevated surfaces
 
-// Edison bulb warm white - not pure white, aged incandescent glow
-val TextPrimary = Color(0xFFF5F3E8)             // Main text/lines
-val TextSecondary = Color(0xFFD4D2C4)           // Dimmed labels
-val TextTertiary = Color(0xFFB0AEA0)            // Hints, disabled
+// Blueprint blue text
+val TextPrimary = Color(0xFF0A3D6B)              // Main text/lines
+val TextSecondary = Color(0xFF4A7BA8)            // Dimmed labels
+val TextTertiary = Color(0xFF8EAEC4)             // Hints, disabled
 
-// Deep vintage couch colors - matte, understated
-val AccentGarnet = Color(0xFF6B3939)            // Critical alerts, warnings
-val AccentGarnetDim = Color(0xFF5C2E2E)         // Hover states
-val AccentEmerald = Color(0xFF3A5C46)           // Active, success, motors on
-val AccentEmeraldDim = Color(0xFF2E5C3E)        // Inactive motors
+// Blueprint blue for UI elements
+val BlueprintBlue = Color(0xFF0055AA)            // Primary line/border color
+val BlueprintBlueDim = Color(0xFF003D7A)         // Darker variant
+
+// Status colors
+val AccentGarnet = Color(0xFFB22222)             // Critical alerts, errors
+val AccentGarnetDim = Color(0xFF8B1A1A)          // Darker variant
+val AccentEmerald = Color(0xFF1B7340)            // Connected, success
+val AccentEmeraldDim = Color(0xFF156233)         // Inactive
 
 // Utility
-val GridLines = Color(0xFF3A3A36)               // Subtle grid/dividers
-val Highlight = Color(0xFFFFE6A0)               // CRT glow effect (rare use)
+val GridLines = Color(0xFFB8D0E8)               // Light blue grid/dividers
+val Highlight = Color(0xFF0077CC)               // Bright blue for active indicators
 
-// ═══════════════════════════════════════════════════════════
-// TYPOGRAPHY - MONOSPACED TERMINAL AESTHETIC
-// ═══════════════════════════════════════════════════════════
+// =============================================================
+// TYPOGRAPHY - MONOSPACED TECHNICAL
+// =============================================================
 
 private val PollyTypography = Typography(
-    // Headers (ALL CAPS)
+    // Headers
     displayLarge = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontSize = 20.sp,
@@ -65,7 +68,7 @@ private val PollyTypography = Typography(
         letterSpacing = 0.5.sp,
         color = TextPrimary
     ),
-    
+
     // Section labels
     headlineLarge = TextStyle(
         fontFamily = FontFamily.Monospace,
@@ -88,7 +91,7 @@ private val PollyTypography = Typography(
         letterSpacing = 0.5.sp,
         color = TextSecondary
     ),
-    
+
     // Body text
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Monospace,
@@ -111,7 +114,7 @@ private val PollyTypography = Typography(
         letterSpacing = 0.5.sp,
         color = TextSecondary
     ),
-    
+
     // Labels
     labelLarge = TextStyle(
         fontFamily = FontFamily.Monospace,
@@ -136,9 +139,9 @@ private val PollyTypography = Typography(
     )
 )
 
-// ═══════════════════════════════════════════════════════════
+// =============================================================
 // SHAPES - SHARP RECTANGLES (NO ROUNDED CORNERS)
-// ═══════════════════════════════════════════════════════════
+// =============================================================
 
 private val PollyShapes = Shapes(
     extraSmall = RoundedCornerShape(0.dp),
@@ -148,56 +151,56 @@ private val PollyShapes = Shapes(
     extraLarge = RoundedCornerShape(0.dp)
 )
 
-// ═══════════════════════════════════════════════════════════
+// =============================================================
 // THEME COMPOSABLE
-// ═══════════════════════════════════════════════════════════
+// =============================================================
 
 @Composable
 fun PollyTheme(
     content: @Composable () -> Unit
 ) {
-    val colorScheme = darkColorScheme(
-        // Primary colors (emerald for active states)
-        primary = AccentEmerald,
-        onPrimary = TextPrimary,
-        primaryContainer = AccentEmeraldDim,
-        onPrimaryContainer = TextPrimary,
-        
-        // Secondary colors (garnet for warnings)
-        secondary = AccentGarnet,
-        onSecondary = TextPrimary,
-        secondaryContainer = AccentGarnetDim,
-        onSecondaryContainer = TextPrimary,
-        
+    val colorScheme = lightColorScheme(
+        // Primary colors (blueprint blue)
+        primary = BlueprintBlue,
+        onPrimary = Color.White,
+        primaryContainer = BlueprintBlueDim,
+        onPrimaryContainer = Color.White,
+
+        // Secondary colors (emerald for success/connected)
+        secondary = AccentEmerald,
+        onSecondary = Color.White,
+        secondaryContainer = AccentEmeraldDim,
+        onSecondaryContainer = Color.White,
+
         // Background
         background = BackgroundPrimary,
         onBackground = TextPrimary,
-        
+
         // Surface (cards, panels)
         surface = BackgroundSecondary,
         onSurface = TextPrimary,
         surfaceVariant = BackgroundTertiary,
         onSurfaceVariant = TextSecondary,
-        
-        // Outline (borders, dividers)
-        outline = GridLines,
+
+        // Outline (blueprint blue borders)
+        outline = BlueprintBlue,
         outlineVariant = GridLines,
-        
-        // Error (use garnet)
+
+        // Error (red)
         error = AccentGarnet,
-        onError = TextPrimary,
+        onError = Color.White,
         errorContainer = AccentGarnetDim,
-        onErrorContainer = TextPrimary,
-        
+        onErrorContainer = Color.White,
+
         // Inverse (for contrast)
         inverseSurface = TextPrimary,
         inverseOnSurface = BackgroundPrimary,
-        inversePrimary = AccentEmeraldDim,
-        
+        inversePrimary = Highlight,
+
         // Scrim (overlays)
-        scrim = Color.Black.copy(alpha = 0.5f)
+        scrim = Color.Black.copy(alpha = 0.3f)
     )
-    
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = PollyTypography,

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Active tab: Edison bulb warm white -->
-    <item android:color="#F5F3E8" android:state_checked="true" />
-    <!-- Inactive tab: Dimmed secondary text -->
-    <item android:color="#B0AEA0" />
+    <!-- Active tab: Blueprint blue -->
+    <item android:color="#0055AA" android:state_checked="true" />
+    <!-- Inactive tab: Dimmed blue -->
+    <item android:color="#8EAEC4" />
 </selector>

@@ -18,7 +18,7 @@ class PollyFragmentCompose : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 PollyTheme {
-                    PollyDashboardScreen()
+                    BridgeStatusScreen()
                 }
             }
         }

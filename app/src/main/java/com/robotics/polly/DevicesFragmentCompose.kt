@@ -8,7 +8,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import com.robotics.polly.ui.theme.PollyTheme
 
-class ArduinoFragmentCompose : Fragment() {
+class DevicesFragmentCompose : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -18,7 +18,7 @@ class ArduinoFragmentCompose : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 PollyTheme {
-                    ArduinoScreen()
+                    DevicesScreen()
                 }
             }
         }

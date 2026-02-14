@@ -24,13 +24,9 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("polly_settings", Context.MODE_PRIVATE)
     
-    // Store original values for revert
-    val originalEsp32Url = remember { prefs.getString("esp32_url", "http://192.168.0.170:80") ?: "http://192.168.0.170:80" }
     val originalServerPort = remember { prefs.getInt("server_port", 8080) }
     val originalDebugMode = remember { prefs.getBoolean("debug_mode", false) }
-    
-    // Current values (editable)
-    var esp32Url by remember { mutableStateOf(originalEsp32Url) }
+
     var serverPort by remember { mutableStateOf(originalServerPort.toString()) }
     var debugMode by remember { mutableStateOf(originalDebugMode) }
     var testResult by remember { mutableStateOf("") }
@@ -93,25 +89,21 @@ fun SettingsScreen() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "▓ SETTINGS",
+                text = "SETTINGS",
                 style = MaterialTheme.typography.displayMedium
             )
             
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = {
-                    // Revert all changes
-                    esp32Url = originalEsp32Url
                     serverPort = originalServerPort.toString()
                     debugMode = originalDebugMode
                     (context as? Activity)?.finish()
                 }) {
                     Text("Revert")
                 }
-                
+
                 Button(onClick = {
-                    // Save all changes
                     prefs.edit()
-                        .putString("esp32_url", esp32Url)
                         .putInt("server_port", serverPort.toIntOrNull() ?: 8080)
                         .putBoolean("debug_mode", debugMode)
                         .apply()
@@ -135,7 +127,7 @@ fun SettingsScreen() {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "▓ SENSOR CALIBRATION",
+                    text = "SENSOR CALIBRATION",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -193,48 +185,6 @@ fun SettingsScreen() {
             }
         }
         
-        // ESP32 Connection Section
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            elevation = CardDefaults.cardElevation(0.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "📡 ESP32 Connection",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                OutlinedTextField(
-                    value = esp32Url,
-                    onValueChange = { esp32Url = it },
-                    label = { Text("ESP32 URL") },
-                    placeholder = { Text("http://192.168.0.170:80") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                )
-                
-                Button(
-                    onClick = {
-                        testResult = "Testing connection..."
-                        // TODO: Actually test connection
-                        testResult = "✅ Connected to ESP32"
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Test Connection")
-                }
-            }
-        }
-        
         // General Settings Section
         Card(
             colors = CardDefaults.cardColors(
@@ -246,7 +196,7 @@ fun SettingsScreen() {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "🔧 General",
+                    text = "GENERAL",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -255,7 +205,7 @@ fun SettingsScreen() {
                 OutlinedTextField(
                     value = serverPort,
                     onValueChange = { serverPort = it },
-                    label = { Text("HTTP Server Port") },
+                    label = { Text("WebSocket Server Port") },
                     placeholder = { Text("8080") },
                     modifier = Modifier
                         .fillMaxWidth()

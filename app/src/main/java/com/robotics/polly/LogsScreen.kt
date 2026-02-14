@@ -54,7 +54,7 @@ fun LogsScreen() {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "▓ SYSTEM LOGS",
+                            text = "SYSTEM LOGS",
                             style = MaterialTheme.typography.headlineMedium
                         )
                         
@@ -135,9 +135,7 @@ fun LogsScreen() {
 
 fun formatLogsWithBoxes(rawLogs: String): String {
     return if (rawLogs.isBlank()) {
-        "┌─ NO LOGS ───────────────────────────────────┐\n" +
-        "│ %-45s │\n".format("No system events yet") +
-        "└─────────────────────────────────────────────┘"
+        "-- NO LOGS --\n\n  No system events yet"
     } else {
         rawLogs
     }
