@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polly Robot Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    background: #0a0a0f;
+    color: #c8c8d0;
+    overflow-x: hidden;
+  }
+  header {
+    background: #12121a;
+    border-bottom: 1px solid #2a2a3a;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 18px; color: #e0e0e8; font-weight: 600; }
+  .server-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #555;
+  }
+  .dot.connected { background: #4caf50; box-shadow: 0 0 6px #4caf5088; }
+  .dot.disconnected { background: #f44336; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 12px;
+    padding: 12px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .panel {
+    background: #12121a;
+    border: 1px solid #2a2a3a;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid #2a2a3a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    color: #a0a0b0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .panel-header .dot { margin-right: 0; }
+  .panel-body {
+    padding: 14px;
+  }
+
+  /* Connection status bar */
+  .conn-bar {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .conn-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  /* Sensor data */
+  .sensor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .sensor-item {
+    background: #0a0a12;
+    border-radius: 4px;
+    padding: 8px 10px;
+  }
+  .sensor-label {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+  }
+  .sensor-value {
+    font-size: 16px;
+    color: #e0e0e8;
+    font-weight: 600;
+  }
+  .sensor-value.warn { color: #ff9800; }
+  .sensor-value.danger { color: #f44336; }
+
+  /* Camera panels */
+  .camera-container {
+    position: relative;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 240px;
+  }
+  .camera-container img, .camera-container canvas {
+    max-width: 100%;
+    display: block;
+  }
+  .camera-placeholder {
+    color: #444;
+    font-size: 13px;
+  }
+
+  /* LIDAR */
+  #lidar-canvas {
+    background: #050508;
+    border-radius: 4px;
+    display: block;
+    margin: 0 auto;
+  }
+
+  /* Gamepad */
+  .gamepad-panel { grid-column: 1 / -1; }
+  .gamepad-body {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    padding: 14px;
+  }
+  .stick-viz {
+    width: 120px;
+    height: 120px;
+    background: #0a0a12;
+    border-radius: 50%;
+    border: 2px solid #2a2a3a;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .stick-dot {
+    width: 16px; height: 16px;
+    background: #4caf50;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.05s;
+  }
+  .stick-crosshair-h, .stick-crosshair-v {
+    position: absolute;
+    background: #1a1a2a;
+  }
+  .stick-crosshair-h {
+    width: 100%; height: 1px;
+    top: 50%; left: 0;
+  }
+  .stick-crosshair-v {
+    width: 1px; height: 100%;
+    top: 0; left: 50%;
+  }
+  .motor-bars {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    height: 120px;
+    flex-shrink: 0;
+  }
+  .motor-bar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 50px;
+  }
+  .motor-bar-track {
+    width: 30px;
+    height: 100px;
+    background: #0a0a12;
+    border-radius: 4px;
+    border: 1px solid #2a2a3a;
+    position: relative;
+    overflow: hidden;
+  }
+  .motor-bar-fill {
+    position: absolute;
+    bottom: 50%;
+    left: 0;
+    width: 100%;
+    background: #4caf50;
+    transition: all 0.05s;
+  }
+  .motor-bar-fill.reverse {
+    bottom: auto;
+    top: 50%;
+    background: #ff9800;
+  }
+  .motor-bar-center {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: #333;
+  }
+  .motor-bar-label {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+  }
+  .motor-bar-value {
+    font-size: 12px;
+    color: #e0e0e8;
+    font-weight: 600;
+  }
+  .gamepad-info {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.6;
+  }
+  .gamepad-info strong { color: #a0a0b0; }
+  .gamepad-name {
+    font-size: 13px;
+    color: #4caf50;
+    margin-bottom: 6px;
+  }
+  .gamepad-disconnected {
+    color: #f44336;
+    font-size: 13px;
+  }
+  .estop-btn {
+    background: #b71c1c;
+    color: #fff;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+  .estop-btn:hover { background: #d32f2f; }
+  .estop-btn:active { background: #e53935; }
+
+  .speed-control {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .speed-control label {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+  }
+  .speed-control input[type="range"] {
+    width: 120px;
+  }
+  .speed-control .speed-val {
+    font-size: 12px;
+    color: #e0e0e8;
+    text-align: center;
+  }
+
+  .imu-section { margin-top: 10px; }
+  .imu-section h4 {
+    font-size: 11px;
+    color: #555;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Polly Robot Dashboard</h1>
+  <div class="server-status">
+    <div class="dot" id="ws-dot"></div>
+    <span id="ws-label">Connecting...</span>
+  </div>
+</header>
+
+<!-- Connection status bar -->
+<div style="padding: 8px 12px; background: #0e0e16; border-bottom: 1px solid #1a1a2a;">
+  <div class="conn-bar" id="conn-bar"></div>
+</div>
+
+<div class="grid">
+
+  <!-- Camera -->
+  <div class="panel">
+    <div class="panel-header">
+      Camera
+      <div class="dot" id="camera-dot"></div>
+    </div>
+    <div class="camera-container">
+      <img id="camera-img" style="display:none;" alt="Camera">
+      <span class="camera-placeholder" id="camera-placeholder">No camera feed</span>
+    </div>
+  </div>
+
+  <!-- FLIR Thermal -->
+  <div class="panel">
+    <div class="panel-header">
+      FLIR Thermal
+      <div class="dot" id="flir-dot"></div>
+    </div>
+    <div class="camera-container">
+      <canvas id="flir-canvas" width="160" height="120" style="display:none; image-rendering: pixelated;"></canvas>
+      <span class="camera-placeholder" id="flir-placeholder">No thermal feed</span>
+    </div>
+  </div>
+
+  <!-- LIDAR -->
+  <div class="panel">
+    <div class="panel-header">
+      LIDAR
+      <div class="dot" id="lidar-dot"></div>
+    </div>
+    <div class="panel-body" style="display:flex; justify-content:center;">
+      <canvas id="lidar-canvas" width="300" height="300"></canvas>
+    </div>
+  </div>
+
+  <!-- Arduino Sensors -->
+  <div class="panel">
+    <div class="panel-header">
+      Arduino Sensors
+      <div class="dot" id="arduino-dot"></div>
+    </div>
+    <div class="panel-body">
+      <div class="sensor-grid" id="arduino-sensors">
+        <div class="sensor-item">
+          <div class="sensor-label">Distance (front)</div>
+          <div class="sensor-value" id="s-dist">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Battery</div>
+          <div class="sensor-value" id="s-batt">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Temperature</div>
+          <div class="sensor-value" id="s-temp">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Loop Time</div>
+          <div class="sensor-value" id="s-loop">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Accel (x,y,z)</div>
+          <div class="sensor-value" id="s-accel">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Gyro (x,y,z)</div>
+          <div class="sensor-value" id="s-gyro">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone IMU -->
+  <div class="panel">
+    <div class="panel-header">
+      Phone IMU
+      <div class="dot" id="imu-dot"></div>
+    </div>
+    <div class="panel-body">
+      <div class="sensor-grid" id="imu-sensors">
+        <div class="sensor-item">
+          <div class="sensor-label">Accel X</div>
+          <div class="sensor-value" id="i-ax">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Accel Y</div>
+          <div class="sensor-value" id="i-ay">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Accel Z</div>
+          <div class="sensor-value" id="i-az">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Gyro X</div>
+          <div class="sensor-value" id="i-gx">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Gyro Y</div>
+          <div class="sensor-value" id="i-gy">--</div>
+        </div>
+        <div class="sensor-item">
+          <div class="sensor-label">Gyro Z</div>
+          <div class="sensor-value" id="i-gz">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- E-Stop info panel -->
+  <div class="panel">
+    <div class="panel-header">E-Stop Events</div>
+    <div class="panel-body">
+      <div id="estop-log" style="font-size: 12px; color: #666; max-height: 200px; overflow-y: auto;">
+        No emergency stops triggered.
+      </div>
+    </div>
+  </div>
+
+  <!-- Gamepad / Motor Control -->
+  <div class="panel gamepad-panel">
+    <div class="panel-header">
+      Xbox Controller / Motor Control
+      <div class="dot" id="gamepad-dot"></div>
+    </div>
+    <div class="gamepad-body">
+      <!-- Left stick visualization -->
+      <div>
+        <div style="font-size:10px; color:#666; text-transform:uppercase; text-align:center; margin-bottom:4px;">Left Stick</div>
+        <div class="stick-viz" id="stick-left">
+          <div class="stick-crosshair-h"></div>
+          <div class="stick-crosshair-v"></div>
+          <div class="stick-dot" id="stick-left-dot"></div>
+        </div>
+      </div>
+
+      <!-- Motor output bars -->
+      <div class="motor-bars">
+        <div class="motor-bar-container">
+          <div class="motor-bar-value" id="motor-left-val">0</div>
+          <div class="motor-bar-track">
+            <div class="motor-bar-center"></div>
+            <div class="motor-bar-fill" id="motor-left-fill"></div>
+          </div>
+          <div class="motor-bar-label">Left</div>
+        </div>
+        <div class="motor-bar-container">
+          <div class="motor-bar-value" id="motor-right-val">0</div>
+          <div class="motor-bar-track">
+            <div class="motor-bar-center"></div>
+            <div class="motor-bar-fill" id="motor-right-fill"></div>
+          </div>
+          <div class="motor-bar-label">Right</div>
+        </div>
+      </div>
+
+      <!-- Speed limit -->
+      <div class="speed-control">
+        <label>Max Speed</label>
+        <input type="range" id="speed-slider" min="50" max="255" value="150">
+        <div class="speed-val" id="speed-val">150</div>
+      </div>
+
+      <!-- Gamepad info -->
+      <div class="gamepad-info" id="gamepad-info">
+        <div class="gamepad-disconnected">No controller detected</div>
+        <br>
+        <strong>Controls:</strong><br>
+        Left stick: drive (arcade)<br>
+        Right trigger: boost<br>
+        Left bumper: e-stop<br>
+        A button: honk LED<br>
+      </div>
+
+      <!-- E-Stop button -->
+      <button class="estop-btn" id="estop-btn" onclick="sendStop()">E-STOP</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── WebSocket connection to local server ──────────────────────────────────────
+
+let ws = null;
+let wsConnected = false;
+
+function connectWS() {
+  const url = `ws://${location.host}/ws`;
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    wsConnected = true;
+    document.getElementById('ws-dot').className = 'dot connected';
+    document.getElementById('ws-label').textContent = 'Connected';
+  };
+
+  ws.onclose = () => {
+    wsConnected = false;
+    document.getElementById('ws-dot').className = 'dot disconnected';
+    document.getElementById('ws-label').textContent = 'Disconnected';
+    setTimeout(connectWS, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      handleMessage(msg);
+    } catch (e) {}
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'status': updateConnectionStatus(msg.connections); break;
+    case 'arduino': updateArduinoData(msg.data); break;
+    case 'imu': updateIMUData(msg.data); break;
+    case 'camera': updateCamera(msg.jpeg); break;
+    case 'flir': updateFLIR(msg); break;
+    case 'lidar': updateLIDAR(msg.points); break;
+  }
+}
+
+// ── Connection status ─────────────────────────────────────────────────────────
+
+const ENDPOINT_NAMES = ['arduino', 'lidar', 'camera', 'flir', 'imu', 'control'];
+
+function updateConnectionStatus(connections) {
+  const bar = document.getElementById('conn-bar');
+  bar.innerHTML = ENDPOINT_NAMES.map(ep => {
+    const ok = connections[ep];
+    return `<div class="conn-item">
+      <div class="dot ${ok ? 'connected' : 'disconnected'}"></div>
+      <span>${ep}</span>
+    </div>`;
+  }).join('');
+
+  // Update individual panel dots
+  for (const ep of ENDPOINT_NAMES) {
+    const dot = document.getElementById(`${ep}-dot`);
+    if (dot) dot.className = `dot ${connections[ep] ? 'connected' : 'disconnected'}`;
+  }
+}
+
+// ── Arduino sensor data ───────────────────────────────────────────────────────
+
+function updateArduinoData(d) {
+  if (d.estop) {
+    addEstopEvent(d);
+    return;
+  }
+
+  const dist = d.dist_f;
+  const distEl = document.getElementById('s-dist');
+  distEl.textContent = dist != null ? `${dist} cm` : '--';
+  distEl.className = 'sensor-value' + (dist < 10 ? ' danger' : dist < 20 ? ' warn' : '');
+
+  const batt = d.battery;
+  const battEl = document.getElementById('s-batt');
+  battEl.textContent = batt != null ? `${batt.toFixed(2)} V` : '--';
+  battEl.className = 'sensor-value' + (batt < 6.5 ? ' danger' : batt < 7.0 ? ' warn' : '');
+
+  document.getElementById('s-temp').textContent = d.temp != null ? `${d.temp.toFixed(1)} C` : '--';
+  document.getElementById('s-loop').textContent = d.execUs != null ? `${d.execUs} us` : '--';
+
+  if (d.accel) {
+    document.getElementById('s-accel').textContent = d.accel.map(v => v.toString()).join(', ');
+  }
+  if (d.gyro) {
+    document.getElementById('s-gyro').textContent = d.gyro.map(v => v.toString()).join(', ');
+  }
+}
+
+function addEstopEvent(d) {
+  const log = document.getElementById('estop-log');
+  const time = new Date().toLocaleTimeString();
+  const entry = document.createElement('div');
+  entry.style.color = '#f44336';
+  entry.textContent = `[${time}] E-STOP: source=${d.source}, dist=${d.dist}cm`;
+  log.prepend(entry);
+  // Remove placeholder text
+  if (log.children.length > 1 && log.lastChild.nodeType === Node.TEXT_NODE) {
+    log.lastChild.remove();
+  }
+}
+
+// ── Phone IMU data ────────────────────────────────────────────────────────────
+
+function updateIMUData(d) {
+  document.getElementById('i-ax').textContent = d.ax != null ? d.ax.toFixed(2) : '--';
+  document.getElementById('i-ay').textContent = d.ay != null ? d.ay.toFixed(2) : '--';
+  document.getElementById('i-az').textContent = d.az != null ? d.az.toFixed(2) : '--';
+  document.getElementById('i-gx').textContent = d.gx != null ? d.gx.toFixed(1) : '--';
+  document.getElementById('i-gy').textContent = d.gy != null ? d.gy.toFixed(1) : '--';
+  document.getElementById('i-gz').textContent = d.gz != null ? d.gz.toFixed(1) : '--';
+}
+
+// ── Camera ────────────────────────────────────────────────────────────────────
+
+function updateCamera(jpegB64) {
+  const img = document.getElementById('camera-img');
+  const ph = document.getElementById('camera-placeholder');
+  img.src = 'data:image/jpeg;base64,' + jpegB64;
+  img.style.display = 'block';
+  ph.style.display = 'none';
+}
+
+// ── FLIR Thermal ──────────────────────────────────────────────────────────────
+
+const flirCanvas = document.getElementById('flir-canvas');
+const flirCtx = flirCanvas.getContext('2d');
+
+// Iron palette lookup (simplified)
+function ironPalette(v) {
+  // v is 0-255, map to iron/inferno-like palette
+  if (v < 64)  return [v * 2, 0, v * 2];
+  if (v < 128) return [255, (v - 64) * 4, 0];
+  if (v < 192) return [255, 255, (v - 128) * 4];
+  return [255, 255, 255];
+}
+
+function updateFLIR(msg) {
+  const ph = document.getElementById('flir-placeholder');
+  ph.style.display = 'none';
+  flirCanvas.style.display = 'block';
+
+  flirCanvas.width = msg.width;
+  flirCanvas.height = msg.height;
+  const imageData = flirCtx.createImageData(msg.width, msg.height);
+
+  for (let i = 0; i < msg.pixels.length; i++) {
+    const [r, g, b] = ironPalette(msg.pixels[i]);
+    imageData.data[i * 4]     = r;
+    imageData.data[i * 4 + 1] = g;
+    imageData.data[i * 4 + 2] = b;
+    imageData.data[i * 4 + 3] = 255;
+  }
+  flirCtx.putImageData(imageData, 0, 0);
+}
+
+// ── LIDAR ─────────────────────────────────────────────────────────────────────
+
+const lidarCanvas = document.getElementById('lidar-canvas');
+const lidarCtx = lidarCanvas.getContext('2d');
+let lidarPoints = [];
+const LIDAR_MAX_DIST = 4000; // mm
+
+function updateLIDAR(points) {
+  // Accumulate points (keep last ~2 scans worth)
+  lidarPoints = lidarPoints.concat(points);
+  if (lidarPoints.length > 800) {
+    lidarPoints = lidarPoints.slice(-600);
+  }
+  drawLIDAR();
+}
+
+function drawLIDAR() {
+  const w = lidarCanvas.width;
+  const h = lidarCanvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+  const scale = (w / 2 - 10) / LIDAR_MAX_DIST;
+
+  lidarCtx.fillStyle = '#050508';
+  lidarCtx.fillRect(0, 0, w, h);
+
+  // Range rings
+  lidarCtx.strokeStyle = '#1a1a2a';
+  lidarCtx.lineWidth = 0.5;
+  for (let r = 1000; r <= LIDAR_MAX_DIST; r += 1000) {
+    lidarCtx.beginPath();
+    lidarCtx.arc(cx, cy, r * scale, 0, Math.PI * 2);
+    lidarCtx.stroke();
+  }
+
+  // Crosshairs
+  lidarCtx.beginPath();
+  lidarCtx.moveTo(cx, 0); lidarCtx.lineTo(cx, h);
+  lidarCtx.moveTo(0, cy); lidarCtx.lineTo(w, cy);
+  lidarCtx.stroke();
+
+  // Points
+  for (const pt of lidarPoints) {
+    const rad = pt.a * Math.PI / 180;
+    const px = cx + pt.d * scale * Math.cos(rad);
+    const py = cy - pt.d * scale * Math.sin(rad);
+    const alpha = Math.min(1, pt.q / 15);
+    lidarCtx.fillStyle = `rgba(0, 200, 100, ${alpha})`;
+    lidarCtx.fillRect(px - 1, py - 1, 2, 2);
+  }
+
+  // Robot center
+  lidarCtx.fillStyle = '#4caf50';
+  lidarCtx.beginPath();
+  lidarCtx.arc(cx, cy, 3, 0, Math.PI * 2);
+  lidarCtx.fill();
+}
+
+// Initial empty LIDAR render
+drawLIDAR();
+
+// ── Xbox Controller (Gamepad API) ─────────────────────────────────────────────
+
+let gamepadIndex = null;
+let maxSpeed = 150;
+let lastMotorLeft = 0;
+let lastMotorRight = 0;
+let lastSendTime = 0;
+const SEND_INTERVAL_MS = 50; // 20 Hz
+const DEADZONE = 0.12;
+
+document.getElementById('speed-slider').addEventListener('input', (e) => {
+  maxSpeed = parseInt(e.target.value);
+  document.getElementById('speed-val').textContent = maxSpeed;
+});
+
+window.addEventListener('gamepadconnected', (e) => {
+  gamepadIndex = e.gamepad.index;
+  document.getElementById('gamepad-dot').className = 'dot connected';
+  const info = document.getElementById('gamepad-info');
+  info.innerHTML = `
+    <div class="gamepad-name">${e.gamepad.id}</div>
+    <strong>Controls:</strong><br>
+    Left stick: drive (arcade)<br>
+    Right trigger: boost<br>
+    Left bumper: e-stop<br>
+    A button: LED flash
+  `;
+});
+
+window.addEventListener('gamepaddisconnected', (e) => {
+  if (e.gamepad.index === gamepadIndex) {
+    gamepadIndex = null;
+    document.getElementById('gamepad-dot').className = 'dot disconnected';
+    document.getElementById('gamepad-info').innerHTML =
+      '<div class="gamepad-disconnected">No controller detected</div>';
+    sendStop();
+  }
+});
+
+function applyDeadzone(val) {
+  if (Math.abs(val) < DEADZONE) return 0;
+  return (val - Math.sign(val) * DEADZONE) / (1 - DEADZONE);
+}
+
+function pollGamepad() {
+  // If no gamepad registered yet, actively scan for one
+  if (gamepadIndex === null) {
+    const gamepads = navigator.getGamepads();
+    for (let i = 0; i < gamepads.length; i++) {
+      if (gamepads[i] && gamepads[i].connected) {
+        gamepadIndex = i;
+        document.getElementById('gamepad-dot').className = 'dot connected';
+        document.getElementById('gamepad-info').innerHTML = `
+          <div class="gamepad-name">${gamepads[i].id}</div>
+          <strong>Controls:</strong><br>
+          Left stick: drive (arcade)<br>
+          Right trigger: boost<br>
+          Left bumper: e-stop<br>
+          A button: LED flash
+        `;
+        break;
+      }
+    }
+    if (gamepadIndex === null) {
+      requestAnimationFrame(pollGamepad);
+      return;
+    }
+  }
+
+  const gp = navigator.getGamepads()[gamepadIndex];
+  if (!gp || !gp.connected) {
+    gamepadIndex = null;
+    document.getElementById('gamepad-dot').className = 'dot disconnected';
+    document.getElementById('gamepad-info').innerHTML =
+      '<div class="gamepad-disconnected">No controller detected</div>';
+    requestAnimationFrame(pollGamepad);
+    return;
+  }
+
+  // Left stick: axes[0] = X (left/right), axes[1] = Y (up/down, inverted)
+  const stickX = applyDeadzone(gp.axes[0]);
+  const stickY = applyDeadzone(-gp.axes[1]); // invert Y so up = forward
+
+  // Right trigger for boost (axes[5] on some, buttons[7] on standard)
+  const boost = gp.buttons[7] ? gp.buttons[7].value : 0;
+
+  // Left bumper for e-stop
+  if (gp.buttons[4] && gp.buttons[4].pressed) {
+    sendStop();
+  }
+
+  // A button for LED
+  if (gp.buttons[0] && gp.buttons[0].pressed) {
+    sendControl({ target: 'arduino', cmd: JSON.stringify({ N: 20, D1: 0, D2: 255, D3: 0 }) });
+  }
+
+  // Update left stick visualization
+  const dot = document.getElementById('stick-left-dot');
+  const stickViz = document.getElementById('stick-left');
+  const vizSize = stickViz.offsetWidth || 120;
+  const dotX = 50 + stickX * 42; // percentage
+  const dotY = 50 - stickY * 42;
+  dot.style.left = dotX + '%';
+  dot.style.top = dotY + '%';
+
+  // Arcade drive: left stick Y = throttle, X = steering
+  const speedMultiplier = maxSpeed * (1 + boost * 0.5);
+  let left  = Math.round((stickY + stickX) * speedMultiplier);
+  let right = Math.round((stickY - stickX) * speedMultiplier);
+
+  // Clamp to [-255, 255]
+  left  = Math.max(-255, Math.min(255, left));
+  right = Math.max(-255, Math.min(255, right));
+
+  // Update motor bar visualizations
+  updateMotorBar('left', left);
+  updateMotorBar('right', right);
+
+  // Send motor commands at fixed rate
+  const now = Date.now();
+  if (now - lastSendTime >= SEND_INTERVAL_MS) {
+    if (left !== lastMotorLeft || right !== lastMotorRight) {
+      sendMotor(left, right);
+      lastMotorLeft = left;
+      lastMotorRight = right;
+      lastSendTime = now;
+    }
+  }
+
+  requestAnimationFrame(pollGamepad);
+}
+
+function updateMotorBar(side, value) {
+  const fill = document.getElementById(`motor-${side}-fill`);
+  const valEl = document.getElementById(`motor-${side}-val`);
+  valEl.textContent = value;
+
+  const pct = Math.abs(value) / 255 * 50; // 50% = full
+  if (value >= 0) {
+    fill.className = 'motor-bar-fill';
+    fill.style.bottom = '50%';
+    fill.style.top = 'auto';
+    fill.style.height = pct + '%';
+  } else {
+    fill.className = 'motor-bar-fill reverse';
+    fill.style.top = '50%';
+    fill.style.bottom = 'auto';
+    fill.style.height = pct + '%';
+  }
+}
+
+// ── Send commands ─────────────────────────────────────────────────────────────
+
+function sendMotor(left, right) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'motor', left, right }));
+  }
+}
+
+function sendStop() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'stop' }));
+  }
+  lastMotorLeft = 0;
+  lastMotorRight = 0;
+  updateMotorBar('left', 0);
+  updateMotorBar('right', 0);
+}
+
+function sendControl(payload) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'control', payload }));
+  }
+}
+
+// Keyboard e-stop: Escape or Space
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' || e.key === ' ') {
+    e.preventDefault();
+    sendStop();
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+connectWS();
+requestAnimationFrame(pollGamepad);
+
+</script>
+</body>
+</html>

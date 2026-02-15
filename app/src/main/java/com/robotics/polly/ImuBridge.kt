@@ -5,6 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Log
 
 class ImuBridge(
@@ -13,6 +15,8 @@ class ImuBridge(
 ) : SensorEventListener {
 
     private var sensorManager: SensorManager? = null
+    private var handlerThread: HandlerThread? = null
+    private var handler: Handler? = null
     private var lastSendMs = 0L
 
     private var ax = 0f
@@ -27,18 +31,24 @@ class ImuBridge(
 
     fun start() {
         Log.d(TAG, "Starting ImuBridge")
+
+        // Run sensor callbacks on a background thread so broadcastText
+        // (which does network I/O) doesn't hit NetworkOnMainThreadException
+        handlerThread = HandlerThread("ImuBridge").also { it.start() }
+        handler = Handler(handlerThread!!.looper)
+
         sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
         val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val gyro = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
         if (accel != null) {
-            sensorManager?.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME)
+            sensorManager?.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME, handler)
             isConnected = true
             Log.d(TAG, "Accelerometer registered")
         }
         if (gyro != null) {
-            sensorManager?.registerListener(this, gyro, SensorManager.SENSOR_DELAY_GAME)
+            sensorManager?.registerListener(this, gyro, SensorManager.SENSOR_DELAY_GAME, handler)
             Log.d(TAG, "Gyroscope registered")
         }
 
@@ -73,6 +83,9 @@ class ImuBridge(
     fun stop() {
         Log.d(TAG, "Stopping ImuBridge")
         sensorManager?.unregisterListener(this)
+        handlerThread?.quitSafely()
+        handlerThread = null
+        handler = null
         sensorManager = null
         isConnected = false
     }
