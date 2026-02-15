@@ -15,7 +15,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun BridgeStatusScreen() {
@@ -98,6 +100,170 @@ fun BridgeStatusScreen() {
             DeviceRow(name = "FLIR", connected = flirConnected, clients = flirClients, endpoint = "/flir")
             DeviceRow(name = "CAMERA", connected = cameraConnected, clients = cameraClients, endpoint = "/camera")
             DeviceRow(name = "IMU", connected = imuConnected, clients = imuClients, endpoint = "/imu")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Diagnostics Card
+        var pingResult by remember { mutableStateOf("--") }
+        var pingLatency by remember { mutableStateOf("--") }
+
+        StatusCard(title = "DIAGNOSTICS") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        val arduino = activity?.getBridgeService()?.getArduinoBridge()
+                        if (arduino != null && arduino.isConnected) {
+                            pingResult = "..."
+                            val startTime = System.currentTimeMillis()
+                            val listener = object : (String) -> Unit {
+                                override fun invoke(line: String) {
+                                    if (line.contains("\"ok\"") || line.contains("\"error\"")) {
+                                        val elapsed = System.currentTimeMillis() - startTime
+                                        pingResult = line.trim()
+                                        pingLatency = "${elapsed}ms"
+                                        arduino.localListeners.remove(this)
+                                    }
+                                }
+                            }
+                            arduino.localListeners.add(listener)
+                            arduino.sendCommand("{\"N\":1}")
+                            LogManager.tx("Ping: {\"N\":1}")
+                        } else {
+                            pingResult = "Arduino not connected"
+                            pingLatency = "--"
+                        }
+                    },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("PING", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                }
+
+                Button(
+                    onClick = {
+                        val arduino = activity?.getBridgeService()?.getArduinoBridge()
+                        if (arduino != null && arduino.isConnected) {
+                            arduino.sendCommand("{\"N\":101}")
+                            LogManager.tx("State dump: {\"N\":101}")
+                            pingResult = "State dump sent (check logs)"
+                        }
+                    },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Text("STATE", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            StatusRow(label = "PING RESPONSE", value = pingResult)
+            StatusRow(label = "LATENCY", value = pingLatency)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Motor Test Card
+        var motorSpeed by remember { mutableFloatStateOf(150f) }
+        var lastMotorCmd by remember { mutableStateOf("--") }
+        val motorScope = rememberCoroutineScope()
+        var motorJob by remember { mutableStateOf<Job?>(null) }
+
+        StatusCard(title = "MOTOR TEST") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "SPD",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.width(36.dp)
+                )
+                Slider(
+                    value = motorSpeed,
+                    onValueChange = { motorSpeed = it },
+                    valueRange = 50f..255f,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "${motorSpeed.toInt()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.width(36.dp)
+                )
+            }
+
+            val speed = motorSpeed.toInt()
+            val arduino = activity?.getBridgeService()?.getArduinoBridge()
+            val enabled = arduino?.isConnected == true
+
+            fun sendMotorOnce(left: Int, right: Int) {
+                val cmd = "{\"N\":7,\"D1\":$left,\"D2\":$right}"
+                arduino?.sendCommand(cmd)
+            }
+
+            fun sendStopOnce() {
+                arduino?.sendCommand("{\"N\":6}")
+            }
+
+            // Start sending a motor command at 10Hz for 1 second, cancelling any prior job
+            fun startMotor(left: Int, right: Int) {
+                motorJob?.cancel()
+                lastMotorCmd = "L=$left R=$right"
+                LogManager.tx("Motor test: L=$left R=$right (1s)")
+                motorJob = motorScope.launch {
+                    repeat(10) { // 10 sends over 1 second
+                        sendMotorOnce(left, right)
+                        delay(100)
+                    }
+                    sendStopOnce()
+                    lastMotorCmd = "STOP (auto)"
+                }
+            }
+
+            fun stopMotor() {
+                motorJob?.cancel()
+                motorJob = null
+                sendStopOnce()
+                lastMotorCmd = "STOP"
+                LogManager.tx("Motor test: STOP")
+            }
+
+            // FWD row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                MotorButton("FWD", enabled, Modifier.weight(1f)) { startMotor(speed, speed) }
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            // LEFT STOP RIGHT row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                MotorButton("LEFT", enabled, Modifier.weight(1f)) { startMotor(speed, -speed) }
+                MotorButton("STOP", enabled, Modifier.weight(1f), isStop = true) { stopMotor() }
+                MotorButton("RIGHT", enabled, Modifier.weight(1f)) { startMotor(-speed, speed) }
+            }
+            // BACK row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                MotorButton("BACK", enabled, Modifier.weight(1f)) { startMotor(-speed, -speed) }
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            StatusRow(label = "LAST CMD", value = lastMotorCmd)
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -252,6 +418,32 @@ private fun EndpointRow(path: String, description: String, clients: Int) {
             style = MaterialTheme.typography.bodySmall,
             fontFamily = FontFamily.Monospace,
             color = if (clients > 0) Color(0xFF1B7340) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+        )
+    }
+}
+
+@Composable
+private fun MotorButton(
+    label: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    isStop: Boolean = false,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.padding(2.dp).height(48.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isStop) Color(0xFFB22222) else MaterialTheme.colorScheme.primary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = if (enabled) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
         )
     }
 }

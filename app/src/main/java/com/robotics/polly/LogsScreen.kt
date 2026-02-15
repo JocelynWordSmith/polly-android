@@ -13,15 +13,40 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsScreen() {
-    var logText by remember { mutableStateOf(LogManager.getFormattedLogs()) }
+    var showTx by remember { mutableStateOf(true) }
+    var showRx by remember { mutableStateOf(true) }
+    var showInfo by remember { mutableStateOf(true) }
+    var showWarn by remember { mutableStateOf(true) }
+    var showError by remember { mutableStateOf(true) }
+    var logText by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
-    
-    // Update logs periodically
-    LaunchedEffect(Unit) {
+
+    // Update logs periodically with filtering
+    LaunchedEffect(showTx, showRx, showInfo, showWarn, showError) {
         while (true) {
-            logText = LogManager.getFormattedLogs()
+            val logs = LogManager.getLogs().filter { entry ->
+                when (entry.level) {
+                    LogManager.LogLevel.TX -> showTx
+                    LogManager.LogLevel.RX -> showRx
+                    LogManager.LogLevel.INFO, LogManager.LogLevel.SUCCESS -> showInfo
+                    LogManager.LogLevel.WARN -> showWarn
+                    LogManager.LogLevel.ERROR -> showError
+                }
+            }
+            logText = logs.joinToString("\n") { entry ->
+                val prefix = when (entry.level) {
+                    LogManager.LogLevel.INFO -> "ℹ️"
+                    LogManager.LogLevel.SUCCESS -> "✅"
+                    LogManager.LogLevel.ERROR -> "❌"
+                    LogManager.LogLevel.WARN -> "⚠️"
+                    LogManager.LogLevel.TX -> "📤"
+                    LogManager.LogLevel.RX -> "📥"
+                }
+                "${entry.timestamp} $prefix ${entry.message}"
+            }
             delay(500)
         }
     }
@@ -71,6 +96,28 @@ fun LogsScreen() {
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
+                    }
+
+                    // Filter chips
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        FilterChip(selected = showTx, onClick = { showTx = !showTx },
+                            label = { Text("TX", fontSize = 9.sp) },
+                            modifier = Modifier.height(24.dp))
+                        FilterChip(selected = showRx, onClick = { showRx = !showRx },
+                            label = { Text("RX", fontSize = 9.sp) },
+                            modifier = Modifier.height(24.dp))
+                        FilterChip(selected = showInfo, onClick = { showInfo = !showInfo },
+                            label = { Text("INFO", fontSize = 9.sp) },
+                            modifier = Modifier.height(24.dp))
+                        FilterChip(selected = showWarn, onClick = { showWarn = !showWarn },
+                            label = { Text("WARN", fontSize = 9.sp) },
+                            modifier = Modifier.height(24.dp))
+                        FilterChip(selected = showError, onClick = { showError = !showError },
+                            label = { Text("ERR", fontSize = 9.sp) },
+                            modifier = Modifier.height(24.dp))
                     }
                 }
             }

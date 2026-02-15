@@ -240,6 +240,19 @@
     color: #f44336;
     font-size: 13px;
   }
+  .webhid-btn {
+    background: #1a237e;
+    color: #aab;
+    border: 1px solid #3949ab;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 8px;
+    display: inline-block;
+  }
+  .webhid-btn:hover { background: #283593; color: #fff; }
   .estop-btn {
     background: #b71c1c;
     color: #fff;
@@ -466,13 +479,11 @@
       <!-- Gamepad info -->
       <div class="gamepad-info" id="gamepad-info">
         <div class="gamepad-disconnected">No controller detected</div>
-        <br>
-        <strong>Controls:</strong><br>
-        Left stick: drive (arcade)<br>
-        Right trigger: boost<br>
-        Left bumper: e-stop<br>
-        A button: honk LED<br>
+        <button class="webhid-btn" id="webhid-btn" onclick="connectWebHID()">Connect via WebHID</button>
       </div>
+
+      <!-- HID debug output -->
+      <pre id="hid-debug" style="font-size:10px; color:#888; background:#080810; padding:6px; border-radius:4px; margin-top:8px; max-height:120px; overflow-y:auto; display:none;"></pre>
 
       <!-- E-Stop button -->
       <button class="estop-btn" id="estop-btn" onclick="sendStop()">E-STOP</button>
@@ -703,15 +714,143 @@ function drawLIDAR() {
 // Initial empty LIDAR render
 drawLIDAR();
 
-// ── Xbox Controller (Gamepad API) ─────────────────────────────────────────────
+// ── Xbox Controller (Gamepad API + WebHID fallback) ──────────────────────────
 
 let gamepadIndex = null;
 let maxSpeed = 150;
 let lastMotorLeft = 0;
 let lastMotorRight = 0;
 let lastSendTime = 0;
-const SEND_INTERVAL_MS = 50; // 20 Hz
+const SEND_INTERVAL_MS = 100; // 10 Hz — must not saturate Arduino serial
 const DEADZONE = 0.12;
+
+// ── WebHID fallback ──────────────────────────────────────────────────────────
+let hidDevice = null;
+let hidGamepad = null; // Virtual gamepad mimicking Gamepad API interface
+
+function setupHIDDevice(device) {
+  hidDevice = device;
+  const debugEl = document.getElementById('hid-debug');
+
+  hidGamepad = {
+    id: (hidDevice.productName || 'Xbox Controller') + ' (WebHID)',
+    connected: true,
+    buttons: Array.from({length: 17}, () => ({ pressed: false, value: 0 })),
+    axes: [0, 0, 0, 0]
+  };
+
+  hidDevice.addEventListener('inputreport', (e) => {
+    const d = new DataView(e.data.buffer, e.data.byteOffset, e.data.byteLength);
+    if (e.reportId !== 1 || d.byteLength < 14) return;
+
+    const btn = (v) => ({ pressed: !!v, value: v ? 1 : 0 });
+
+    if (d.byteLength >= 17) {
+      // Xbox Series controller Bluetooth format (19 bytes, report ID 1)
+      hidGamepad.axes[0] = (d.getUint16(0, true) - 32768) / 32768;
+      hidGamepad.axes[1] = (d.getUint16(2, true) - 32768) / 32768;
+      hidGamepad.axes[2] = (d.getUint16(4, true) - 32768) / 32768;
+      hidGamepad.axes[3] = (d.getUint16(6, true) - 32768) / 32768;
+      const lt = d.getUint16(8, true) / 1023;
+      const rt = d.getUint16(10, true) / 1023;
+      hidGamepad.buttons[6] = { pressed: lt > 0.1, value: lt };
+      hidGamepad.buttons[7] = { pressed: rt > 0.1, value: rt };
+      const hat = d.getUint8(12);
+      hidGamepad.buttons[12] = btn(hat && (hat >= 8 || hat <= 2));
+      hidGamepad.buttons[13] = btn(hat >= 4 && hat <= 6);
+      hidGamepad.buttons[14] = btn(hat >= 6 && hat <= 8);
+      hidGamepad.buttons[15] = btn(hat >= 2 && hat <= 4);
+      const b1 = d.getUint8(13);
+      hidGamepad.buttons[0]  = btn(b1 & 0x01);
+      hidGamepad.buttons[1]  = btn(b1 & 0x02);
+      hidGamepad.buttons[2]  = btn(b1 & 0x08);
+      hidGamepad.buttons[3]  = btn(b1 & 0x10);
+      hidGamepad.buttons[4]  = btn(b1 & 0x40);
+      hidGamepad.buttons[5]  = btn(b1 & 0x80);
+      const b2 = d.getUint8(14);
+      hidGamepad.buttons[8]  = btn(b2 & 0x04);
+      hidGamepad.buttons[9]  = btn(b2 & 0x08);
+      hidGamepad.buttons[16] = btn(b2 & 0x10);
+      hidGamepad.buttons[10] = btn(b2 & 0x20);
+      hidGamepad.buttons[11] = btn(b2 & 0x40);
+    } else if (d.byteLength >= 14) {
+      // USB GamePad-1 (0x028E) format — 14 bytes
+      const b2 = d.getUint8(2), b3 = d.getUint8(3);
+      hidGamepad.buttons[12] = btn(b2 & 0x01);
+      hidGamepad.buttons[13] = btn(b2 & 0x02);
+      hidGamepad.buttons[14] = btn(b2 & 0x04);
+      hidGamepad.buttons[15] = btn(b2 & 0x08);
+      hidGamepad.buttons[10] = btn(b2 & 0x10);
+      hidGamepad.buttons[11] = btn(b2 & 0x20);
+      hidGamepad.buttons[4]  = btn(b2 & 0x40);
+      hidGamepad.buttons[5]  = btn(b2 & 0x80);
+      hidGamepad.buttons[8]  = btn(b3 & 0x01);
+      hidGamepad.buttons[9]  = btn(b3 & 0x02);
+      hidGamepad.buttons[16] = btn(b3 & 0x04);
+      hidGamepad.buttons[0]  = btn(b3 & 0x10);
+      hidGamepad.buttons[1]  = btn(b3 & 0x20);
+      hidGamepad.buttons[2]  = btn(b3 & 0x40);
+      hidGamepad.buttons[3]  = btn(b3 & 0x80);
+      const lt = d.getUint8(4) / 255, rt = d.getUint8(5) / 255;
+      hidGamepad.buttons[6] = { pressed: lt > 0.1, value: lt };
+      hidGamepad.buttons[7] = { pressed: rt > 0.1, value: rt };
+      hidGamepad.axes[0] = d.getInt16(6, true) / 32767;
+      hidGamepad.axes[1] = d.getInt16(8, true) / 32767;
+      hidGamepad.axes[2] = d.getInt16(10, true) / 32767;
+      hidGamepad.axes[3] = d.getInt16(12, true) / 32767;
+    }
+  });
+
+  hidDevice.addEventListener('disconnect', () => {
+    hidGamepad = null;
+    hidDevice = null;
+    debugEl.style.display = 'none';
+  });
+
+  debugEl.style.display = 'block';
+  debugEl.textContent = `Connected: ${hidDevice.productName} (auto)`;
+}
+
+// Auto-connect to a previously paired controller on page load
+async function autoConnectWebHID() {
+  if (!navigator.hid) return;
+  try {
+    const devices = await navigator.hid.getDevices();
+    const xbox = devices.find(d => d.vendorId === 0x045E);
+    if (!xbox) return;
+    if (!xbox.opened) await xbox.open();
+    setupHIDDevice(xbox);
+  } catch (err) {
+    console.log('WebHID auto-connect failed:', err.message);
+  }
+}
+
+// Manual connect via device picker (first-time pairing)
+async function connectWebHID() {
+  if (!navigator.hid) {
+    alert('WebHID is not supported in this browser.');
+    return;
+  }
+  const debugEl = document.getElementById('hid-debug');
+  debugEl.style.display = 'block';
+  try {
+    const devices = await navigator.hid.requestDevice({
+      filters: [{ vendorId: 0x045E }]
+    });
+    if (devices.length === 0) {
+      debugEl.textContent = 'No device selected.';
+      return;
+    }
+    const device = devices[0];
+    if (!device.opened) await device.open();
+    setupHIDDevice(device);
+  } catch (err) {
+    debugEl.textContent = `WebHID failed: ${err.name}: ${err.message}`;
+    console.error('WebHID error:', err);
+  }
+}
+
+// ── Native Gamepad API events ────────────────────────────────────────────────
 
 document.getElementById('speed-slider').addEventListener('input', (e) => {
   maxSpeed = parseInt(e.target.value);
@@ -720,98 +859,93 @@ document.getElementById('speed-slider').addEventListener('input', (e) => {
 
 window.addEventListener('gamepadconnected', (e) => {
   gamepadIndex = e.gamepad.index;
-  document.getElementById('gamepad-dot').className = 'dot connected';
-  const info = document.getElementById('gamepad-info');
-  info.innerHTML = `
-    <div class="gamepad-name">${e.gamepad.id}</div>
-    <strong>Controls:</strong><br>
-    Left stick: drive (arcade)<br>
-    Right trigger: boost<br>
-    Left bumper: e-stop<br>
-    A button: LED flash
-  `;
 });
 
 window.addEventListener('gamepaddisconnected', (e) => {
   if (e.gamepad.index === gamepadIndex) {
     gamepadIndex = null;
-    document.getElementById('gamepad-dot').className = 'dot disconnected';
-    document.getElementById('gamepad-info').innerHTML =
-      '<div class="gamepad-disconnected">No controller detected</div>';
     sendStop();
   }
 });
+
+// ── Gamepad polling (supports both native + WebHID) ──────────────────────────
 
 function applyDeadzone(val) {
   if (Math.abs(val) < DEADZONE) return 0;
   return (val - Math.sign(val) * DEADZONE) / (1 - DEADZONE);
 }
 
-function pollGamepad() {
-  // If no gamepad registered yet, actively scan for one
-  if (gamepadIndex === null) {
-    const gamepads = navigator.getGamepads();
-    for (let i = 0; i < gamepads.length; i++) {
-      if (gamepads[i] && gamepads[i].connected) {
-        gamepadIndex = i;
-        document.getElementById('gamepad-dot').className = 'dot connected';
-        document.getElementById('gamepad-info').innerHTML = `
-          <div class="gamepad-name">${gamepads[i].id}</div>
-          <strong>Controls:</strong><br>
-          Left stick: drive (arcade)<br>
-          Right trigger: boost<br>
-          Left bumper: e-stop<br>
-          A button: LED flash
-        `;
-        break;
-      }
-    }
-    if (gamepadIndex === null) {
-      requestAnimationFrame(pollGamepad);
-      return;
+function getActiveGamepad() {
+  // Prefer WebHID if connected
+  if (hidGamepad && hidGamepad.connected) return hidGamepad;
+  // Try native Gamepad API
+  if (gamepadIndex !== null) {
+    const gp = navigator.getGamepads()[gamepadIndex];
+    if (gp && gp.connected) return gp;
+    gamepadIndex = null;
+  }
+  // Scan for any native gamepad
+  const gamepads = navigator.getGamepads();
+  for (let i = 0; i < gamepads.length; i++) {
+    if (gamepads[i] && gamepads[i].connected) {
+      gamepadIndex = i;
+      return gamepads[i];
     }
   }
+  return null;
+}
 
-  const gp = navigator.getGamepads()[gamepadIndex];
-  if (!gp || !gp.connected) {
-    gamepadIndex = null;
-    document.getElementById('gamepad-dot').className = 'dot disconnected';
-    document.getElementById('gamepad-info').innerHTML =
-      '<div class="gamepad-disconnected">No controller detected</div>';
+let wasConnected = false;
+
+function pollGamepad() {
+  const gp = getActiveGamepad();
+
+  if (!gp) {
+    if (wasConnected) {
+      wasConnected = false;
+      document.getElementById('gamepad-dot').className = 'dot disconnected';
+      document.getElementById('gamepad-info').innerHTML =
+        '<div class="gamepad-disconnected">No controller detected</div>' +
+        '<button class="webhid-btn" onclick="connectWebHID()">Connect via WebHID</button>';
+    }
     requestAnimationFrame(pollGamepad);
     return;
   }
 
-  // Left stick: axes[0] = X (left/right), axes[1] = Y (up/down, inverted)
-  const stickX = applyDeadzone(gp.axes[0]);
-  const stickY = applyDeadzone(-gp.axes[1]); // invert Y so up = forward
+  if (!wasConnected) {
+    wasConnected = true;
+    document.getElementById('gamepad-dot').className = 'dot connected';
+    document.getElementById('gamepad-info').innerHTML = `
+      <div class="gamepad-name">${gp.id}</div>
+      <strong>Controls:</strong><br>
+      Left stick Y: forward/back<br>
+      Right stick X: left/right<br>
+      Right trigger: boost
+    `;
+  }
 
-  // Right trigger for boost (axes[5] on some, buttons[7] on standard)
+  // Left stick Y = throttle, Right stick X = steering
+  const throttle = applyDeadzone(-gp.axes[1]); // invert Y so up = forward
+  const steering = applyDeadzone(-gp.axes[2]); // right stick X (inverted)
+
+  // Right trigger for boost
   const boost = gp.buttons[7] ? gp.buttons[7].value : 0;
 
-  // Left bumper for e-stop
-  if (gp.buttons[4] && gp.buttons[4].pressed) {
-    sendStop();
-  }
+  // NOTE: LB e-stop and A button disabled — Bluetooth HID button mapping is
+  // unreliable and was causing phantom stops. The firmware watchdog (500ms)
+  // and tilt protection handle safety. Use the on-screen E-STOP button instead.
 
-  // A button for LED
-  if (gp.buttons[0] && gp.buttons[0].pressed) {
-    sendControl({ target: 'arduino', cmd: JSON.stringify({ N: 20, D1: 0, D2: 255, D3: 0 }) });
-  }
-
-  // Update left stick visualization
+  // Update left stick visualization (showing throttle + steering)
   const dot = document.getElementById('stick-left-dot');
-  const stickViz = document.getElementById('stick-left');
-  const vizSize = stickViz.offsetWidth || 120;
-  const dotX = 50 + stickX * 42; // percentage
-  const dotY = 50 - stickY * 42;
+  const dotX = 50 + steering * 42;
+  const dotY = 50 - throttle * 42;
   dot.style.left = dotX + '%';
   dot.style.top = dotY + '%';
 
-  // Arcade drive: left stick Y = throttle, X = steering
+  // Split arcade: left stick Y = throttle, right stick X = steering
   const speedMultiplier = maxSpeed * (1 + boost * 0.5);
-  let left  = Math.round((stickY + stickX) * speedMultiplier);
-  let right = Math.round((stickY - stickX) * speedMultiplier);
+  let left  = Math.round((throttle + steering) * speedMultiplier);
+  let right = Math.round((throttle - steering) * speedMultiplier);
 
   // Clamp to [-255, 255]
   left  = Math.max(-255, Math.min(255, left));
@@ -821,15 +955,19 @@ function pollGamepad() {
   updateMotorBar('left', left);
   updateMotorBar('right', right);
 
-  // Send motor commands at fixed rate
+  // Send motor commands at fixed rate as heartbeat for firmware watchdog.
+  // Skip sending when idle (both zero) — watchdog only triggers when target != 0.
+  // Always send one zero frame when transitioning to idle so Arduino gets the stop.
   const now = Date.now();
   if (now - lastSendTime >= SEND_INTERVAL_MS) {
-    if (left !== lastMotorLeft || right !== lastMotorRight) {
+    const isIdle = (left === 0 && right === 0);
+    const wasIdle = (lastMotorLeft === 0 && lastMotorRight === 0);
+    if (!isIdle || !wasIdle) {
       sendMotor(left, right);
-      lastMotorLeft = left;
-      lastMotorRight = right;
-      lastSendTime = now;
     }
+    lastMotorLeft = left;
+    lastMotorRight = right;
+    lastSendTime = now;
   }
 
   requestAnimationFrame(pollGamepad);
@@ -889,6 +1027,7 @@ document.addEventListener('keydown', (e) => {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 connectWS();
+autoConnectWebHID();
 requestAnimationFrame(pollGamepad);
 
 </script>

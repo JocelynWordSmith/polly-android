@@ -123,20 +123,29 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
 
     // Control WebSocket that forwards commands
     inner class ControlWebSocket(handshake: IHTTPSession) : WebSocket(handshake) {
+        private var msgCount = 0
 
         override fun onOpen() {
             controlClients.add(this)
             Log.d(TAG, "[control] Client connected (${controlClients.size} total)")
+            LogManager.info("[control] Client connected")
         }
 
         override fun onClose(code: NanoWSD.WebSocketFrame.CloseCode, reason: String, initiatedByRemote: Boolean) {
             controlClients.remove(this)
             Log.d(TAG, "[control] Client disconnected (${controlClients.size} remaining)")
+            LogManager.info("[control] Client disconnected")
         }
 
         override fun onMessage(message: NanoWSD.WebSocketFrame) {
             val text = message.textPayload
             Log.d(TAG, "[control] Received: $text")
+            // Throttle motor command logging (every 20th), log all others immediately
+            msgCount++
+            val isMotor = text?.contains("\"N\":7") == true || text?.contains("\"N\": 7") == true
+            if (!isMotor || msgCount % 20 == 1) {
+                LogManager.rx("[control] $text")
+            }
             onControlMessage?.invoke(text)
         }
 

@@ -239,6 +239,11 @@ async def handle_browser_message(data: str):
         left = msg.get("left", 0)
         right = msg.get("right", 0)
         cmd = json.dumps({"N": 7, "D1": left, "D2": right})
+        if not hasattr(handle_browser_message, '_mc'):
+            handle_browser_message._mc = 0
+        handle_browser_message._mc += 1
+        if handle_browser_message._mc % 20 == 1:
+            log.info("Motor: L=%d R=%d (msg #%d)", left, right, handle_browser_message._mc)
         await send_control({"target": "arduino", "cmd": cmd})
 
     elif msg.get("type") == "stop":
@@ -252,6 +257,7 @@ async def handle_browser_message(data: str):
 async def send_control(payload: dict):
     """Send a command to the phone's /control endpoint."""
     if control_ws is None:
+        log.warning("Control command dropped (no phone connection): %s", payload)
         return
     try:
         await control_ws.send(json.dumps(payload))

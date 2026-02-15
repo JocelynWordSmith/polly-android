@@ -28,16 +28,30 @@ class ArduinoBridge(
             isConnected = connected
             if (connected) {
                 LogManager.success("Arduino: $message")
-                // Enable 20Hz streaming and set watchdog
-                usb.sendCommand("{\"N\":102,\"D1\":500}")
-                usb.sendCommand("{\"N\":103,\"D1\":50}")
-                Log.d(TAG, "Streaming enabled (20Hz), watchdog set (500ms)")
+                // Set watchdog (1s) and enable 5Hz sensor streaming
+                // Lower stream rate prevents serial saturation when motor commands flow
+                usb.sendCommand("{\"N\":102,\"D1\":1000}")
+                usb.sendCommand("{\"N\":103,\"D1\":200}")
+                Log.d(TAG, "Streaming enabled (5Hz), watchdog set (1000ms)")
             } else {
                 LogManager.info("Arduino: $message")
             }
         }
 
         dataListener = { line ->
+            // Surface command acknowledgments in logs (not periodic sensor data)
+            val trimmed = line.trim()
+            if (trimmed.startsWith("{")) {
+                try {
+                    val j = JSONObject(trimmed)
+                    if (j.has("tank") || j.has("cmd") || j.has("ok") ||
+                        j.has("error") || j.has("estop") || j.has("watchdog") ||
+                        j.has("speed") || j.has("safety")) {
+                        LogManager.rx("Arduino: $trimmed")
+                    }
+                } catch (_: Exception) {}
+            }
+
             // Forward to WebSocket clients
             if (wsServer.arduinoClients.isNotEmpty()) {
                 wsServer.broadcastText(wsServer.arduinoClients, line)
@@ -60,7 +74,15 @@ class ArduinoBridge(
         val cmd = json.optString("cmd", "")
         if (cmd.isNotEmpty()) {
             Log.d(TAG, "Control command: $cmd")
+            LogManager.tx("Arduino: $cmd")
+            if (usbSerial == null) {
+                LogManager.warn("USB serial is null, command dropped: $cmd")
+            } else if (!usbSerial!!.isConnected()) {
+                LogManager.warn("USB not connected, command dropped: $cmd")
+            }
             usbSerial?.sendCommand(cmd)
+        } else {
+            LogManager.warn("Empty cmd in control JSON: $json")
         }
     }
 

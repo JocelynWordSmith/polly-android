@@ -117,10 +117,16 @@ class BridgeService : Service() {
             val target = json.optString("target", "")
             Log.d(TAG, "Control message for target: $target")
             when (target) {
-                "arduino" -> arduinoBridge?.handleCommand(json)
+                "arduino" -> {
+                    if (arduinoBridge == null) {
+                        LogManager.warn("Arduino bridge is null, command dropped")
+                    }
+                    arduinoBridge?.handleCommand(json)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Invalid control message: ${e.message}")
+            LogManager.error("Invalid control msg: ${e.message}")
         }
     }
 

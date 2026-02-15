@@ -12,7 +12,7 @@ object LogManager {
     private const val MAX_LOGS = 100
     
     enum class LogLevel {
-        INFO, SUCCESS, ERROR, TX, RX
+        INFO, SUCCESS, ERROR, WARN, TX, RX
     }
     
     data class LogEntry(
@@ -42,6 +42,7 @@ object LogManager {
     fun info(message: String) = log(LogLevel.INFO, message)
     fun success(message: String) = log(LogLevel.SUCCESS, message)
     fun error(message: String) = log(LogLevel.ERROR, message)
+    fun warn(message: String) = log(LogLevel.WARN, "!! $message")
     fun tx(message: String) = log(LogLevel.TX, "TX: $message")
     fun rx(message: String) = log(LogLevel.RX, "RX: $message")
     
@@ -61,6 +62,7 @@ object LogManager {
                 LogLevel.INFO -> "ℹ️"
                 LogLevel.SUCCESS -> "✅"
                 LogLevel.ERROR -> "❌"
+                LogLevel.WARN -> "⚠️"
                 LogLevel.TX -> "📤"
                 LogLevel.RX -> "📥"
             }

@@ -13,6 +13,8 @@ import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
 import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 
 class UsbSerialManager(private val context: Context) {
 
@@ -38,6 +40,12 @@ class UsbSerialManager(private val context: Context) {
     @Volatile
     private var readThreadRunning = false
     private var readThread: Thread? = null
+
+    // Dedicated write thread — prevents blocking callers and serializes USB writes
+    private val writeQueue = LinkedBlockingQueue<String>(64)
+    @Volatile
+    private var writeThreadRunning = false
+    private var writeThread: Thread? = null
 
     // Auto-reconnect settings
     private var autoReconnect = true
@@ -196,10 +204,12 @@ class UsbSerialManager(private val context: Context) {
             isConnected = true
             reconnectAttempts = 0
             onConnectionChanged?.invoke(true, "Connected to Arduino")
+            LogManager.success("USB serial connected to ${device.deviceName}")
             Log.d(TAG, "USB Serial ready")
 
-            // Start persistent read thread
+            // Start persistent read/write threads
             startReadThread()
+            startWriteThread()
         } catch (e: IOException) {
             Log.e(TAG, "Error opening serial port", e)
             onConnectionChanged?.invoke(false, "Connection error: ${e.message}")
@@ -287,23 +297,63 @@ class UsbSerialManager(private val context: Context) {
     fun sendCommand(command: String) {
         if (!isConnected) {
             Log.w(TAG, "Not connected, cannot send: $command")
+            LogManager.warn("USB TX blocked (not connected): $command")
             return
         }
 
-        try {
-            val data = "$command\n".toByteArray(Charsets.UTF_8)
-            serialPort?.write(data, 2000)
-            Log.d(TAG, "TX: $command")
-        } catch (e: IOException) {
-            Log.e(TAG, "TX error: ${e.message}", e)
-            disconnect()
-            if (autoReconnect) {
-                scheduleReconnect()
-            }
+        // Non-blocking enqueue — if queue is full, drop oldest to make room
+        if (!writeQueue.offer(command)) {
+            writeQueue.poll() // drop oldest
+            writeQueue.offer(command)
+            Log.w(TAG, "Write queue full, dropped oldest command")
         }
     }
 
+    private fun startWriteThread() {
+        writeThreadRunning = true
+        writeThread = Thread({
+            Log.d(TAG, "Write thread started")
+            while (writeThreadRunning) {
+                try {
+                    val command = writeQueue.poll(200, TimeUnit.MILLISECONDS) ?: continue
+                    val port = serialPort
+                    if (port == null || !isConnected) {
+                        Log.w(TAG, "Write thread: port gone, dropping: $command")
+                        continue
+                    }
+                    try {
+                        val data = "$command\n".toByteArray(Charsets.UTF_8)
+                        port.write(data, 500)
+                        Log.d(TAG, "TX: $command")
+                        LogManager.tx("USB: $command")
+                    } catch (e: IOException) {
+                        Log.e(TAG, "TX error: ${e.message}", e)
+                        LogManager.error("USB TX failed: ${e.message}")
+                        handler.post {
+                            disconnect()
+                            if (autoReconnect) {
+                                scheduleReconnect()
+                            }
+                        }
+                        break
+                    }
+                } catch (e: InterruptedException) {
+                    break
+                }
+            }
+            Log.d(TAG, "Write thread stopped")
+        }, "Arduino-Write")
+        writeThread?.isDaemon = true
+        writeThread?.start()
+    }
+
     fun disconnect() {
+        LogManager.warn("USB serial disconnecting")
+        writeThreadRunning = false
+        writeThread?.interrupt()
+        writeThread = null
+        writeQueue.clear()
+
         readThreadRunning = false
         readThread?.interrupt()
         readThread = null
