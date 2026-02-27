@@ -11,6 +11,7 @@ import android.util.Log
 import android.util.Size
 import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.CaptureRequestOptions
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -39,6 +40,7 @@ class CameraBridge(
      * Must be called from an activity that provides a LifecycleOwner.
      * Optionally accepts a Preview.SurfaceProvider for local display.
      */
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
     fun startWithLifecycle(lifecycleOwner: LifecycleOwner, surfaceProvider: Preview.SurfaceProvider? = null) {
         Log.d(TAG, "Starting CameraBridge")
 

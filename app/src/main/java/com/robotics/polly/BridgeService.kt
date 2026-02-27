@@ -28,7 +28,6 @@ class BridgeService : Service() {
     private var arduinoBridge: ArduinoBridge? = null
     private var flirBridge: FlirBridge? = null
     private var cameraBridge: CameraBridge? = null
-    private var arCoreBridge: ARCoreBridge? = null
     private var imuBridge: ImuBridge? = null
     private val wsPort = 8080
     private var activityRef: WeakReference<Activity>? = null
@@ -204,10 +203,6 @@ class BridgeService : Service() {
 
     fun startMapMode() {
         if (mapMode) return
-        val activity = activityRef?.get() ?: run {
-            LogManager.error("Map: No activity reference")
-            return
-        }
         val server = wsServer ?: return
 
         LogManager.info("Map: Entering map mode")
@@ -215,10 +210,6 @@ class BridgeService : Service() {
 
         val mapper = GridMapper()
         gridMapper = mapper
-
-        arCoreBridge = ARCoreBridge(server)
-        arCoreBridge?.poseListener = { pose, ts -> mapper.onPose(pose, ts) }
-        arCoreBridge?.startMapMode(activity)
 
         val listener: (String) -> Unit = { line -> mapper.onArduinoData(line) }
         mapArduinoListener = listener
@@ -257,8 +248,6 @@ class BridgeService : Service() {
         mapArduinoListener?.let { arduinoBridge?.localListeners?.remove(it) }
         mapArduinoListener = null
 
-        arCoreBridge?.stop()
-        arCoreBridge = null
         mapMode = false
 
         // Restart CameraX
@@ -322,19 +311,6 @@ class BridgeService : Service() {
         val dir = recorder.start()
         datasetRecorder = recorder
 
-        // Frame recording: full-rate capture from ARCore
-        arCoreBridge?.frameListener = { nv21, w, h, ts ->
-            recorder.recordFrame(nv21, w, h, ts)
-        }
-
-        // Pose recording: wrap existing poseListener
-        val mapper = gridMapper
-        arCoreBridge?.poseListener = { pose, ts ->
-            mapper?.onPose(pose, ts)
-            recorder.recordPose(ts, pose.tx(), pose.ty(), pose.tz(),
-                pose.qx(), pose.qy(), pose.qz(), pose.qw())
-        }
-
         // IMU recording at full sensor rate
         imuBridge?.recordingListener = { ts, wx, wy, wz, ax, ay, az ->
             recorder.recordImu(ts, wx, wy, wz, ax, ay, az)
@@ -347,15 +323,6 @@ class BridgeService : Service() {
 
     fun stopRecording() {
         val recorder = datasetRecorder ?: return
-
-        // Clear frame listener
-        arCoreBridge?.frameListener = null
-
-        // Restore pose listener (GridMapper only)
-        val mapper = gridMapper
-        arCoreBridge?.poseListener = if (mapper != null) {
-            { pose, ts -> mapper.onPose(pose, ts) }
-        } else null
 
         // Clear IMU recording and restore normal rate
         imuBridge?.recordingListener = null
@@ -400,7 +367,6 @@ class BridgeService : Service() {
     fun getArduinoBridge(): ArduinoBridge? = arduinoBridge
     fun getFlirBridge(): FlirBridge? = flirBridge
     fun getCameraBridge(): CameraBridge? = cameraBridge
-    fun getARCoreBridge(): ARCoreBridge? = arCoreBridge
     fun getImuBridge(): ImuBridge? = imuBridge
     fun getWebSocketServer(): PollyWebSocketServer? = wsServer
 
@@ -503,8 +469,6 @@ class BridgeService : Service() {
 
         imuBridge?.stop()
         imuBridge = null
-        arCoreBridge?.stop()
-        arCoreBridge = null
         cameraBridge?.stop()
         cameraBridge = null
         flirBridge?.stop()

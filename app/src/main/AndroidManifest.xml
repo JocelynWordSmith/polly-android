@@ -17,15 +17,11 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" />
 
-    <!-- ARCore is optional — only used during scan mode -->
-    <uses-feature android:name="com.google.ar.core" android:required="false" />
-
     <application
         android:allowBackup="true"
         android:label="Polly"
         android:theme="@style/AppTheme"
         tools:replace="android:label">
-        <meta-data android:name="com.google.ar.core" android:value="optional" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

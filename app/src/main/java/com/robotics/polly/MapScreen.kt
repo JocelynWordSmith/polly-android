@@ -93,7 +93,7 @@ fun MapScreen() {
                 hitZ = grid.lastHitZ
             }
             // Decode camera preview JPEG
-            val jpeg = service?.getARCoreBridge()?.latestPreviewJpeg
+            val jpeg: ByteArray? = null  // TODO: wire up when new pose source provides camera frames
             if (jpeg != null) {
                 val bmp = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
                 if (bmp != null) previewBitmap = bmp.asImageBitmap()
@@ -284,7 +284,7 @@ fun MapScreen() {
                     )
                 }
 
-                // Draw robot trail (ARCore path)
+                // Draw robot trail
                 if (trailSnapshot.size >= 2) {
                     for (i in 1 until trailSnapshot.size) {
                         val (px, pz) = trailSnapshot[i - 1]

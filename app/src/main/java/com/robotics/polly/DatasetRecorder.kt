@@ -94,7 +94,7 @@ class DatasetRecorder(private val baseDir: File) {
 
     /**
      * Record a camera frame. NV21 bytes are compressed to JPEG on the IO thread.
-     * Call from ARCore frame loop — returns immediately.
+     * Call from frame capture loop — returns immediately.
      */
     fun recordFrame(nv21: ByteArray, width: Int, height: Int, timestampNs: Long) {
         if (!isRecording) return
@@ -126,7 +126,7 @@ class DatasetRecorder(private val baseDir: File) {
         }
     }
 
-    /** Record a 6DoF pose. Called at ~30Hz from ARCore. */
+    /** Record a 6DoF pose. Called at ~30Hz from pose source. */
     fun recordPose(timestampNs: Long, tx: Float, ty: Float, tz: Float, qx: Float, qy: Float, qz: Float, qw: Float) {
         if (!isRecording) return
         poseCount++

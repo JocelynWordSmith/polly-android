@@ -36,7 +36,7 @@ class RemoteCommandReceiver : BroadcastReceiver() {
 
         Log.i(TAG, "REMOTE_CMD: $cmd")
 
-        // Commands that touch UI/ARCore must run on main thread
+        // Commands that touch UI must run on main thread
         val handler = Handler(Looper.getMainLooper())
         val pending = goAsync()
 

@@ -14,6 +14,7 @@ import android.hardware.usb.UsbManager
 
 import android.hardware.usb.UsbRequest
 import android.os.Build
+import androidx.core.content.ContextCompat
 import android.util.Log
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -22,7 +23,7 @@ import java.nio.ByteOrder
  * Pure Kotlin USB driver for FLIR One Gen 3 (standard, Lepton 2.5, 80x60).
  *
  * Replaces the deprecated flironesdk.aar with direct USB Host API communication,
- * eliminating the 32-bit native library dependency that conflicts with ARCore (arm64).
+ * eliminating the 32-bit native library dependency (arm64 only).
  *
  * Protocol from community reverse-engineering:
  *   - USB config 3, interfaces 0/1/2
@@ -98,11 +99,7 @@ class FlirUsbDriver(private val context: Context) {
 
     fun start() {
         val filter = IntentFilter(ACTION_USB_PERMISSION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(usbReceiver, filter)
-        }
+        ContextCompat.registerReceiver(context, usbReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         findDevice()
     }

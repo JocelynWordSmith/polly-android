@@ -53,10 +53,10 @@ class WanderController(
         drive()
     }
 
-    // ---- Wait for ARCore + ultrasonic to start flowing ----
+    // ---- Wait for pose + ultrasonic to start flowing ----
 
     private suspend fun waitForData() {
-        Log.i(TAG, "Waiting for ARCore + ultrasonic data...")
+        Log.i(TAG, "Waiting for pose + ultrasonic data...")
         val deadline = System.currentTimeMillis() + INIT_TIMEOUT_MS
         while (gridMapper.updateCount == 0) {
             if (stopped) return

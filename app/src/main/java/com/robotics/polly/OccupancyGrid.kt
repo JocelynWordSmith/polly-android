@@ -18,7 +18,7 @@ import kotlin.math.sqrt
  * Free rays through previously-occupied cells gradually erase them,
  * which self-corrects stale wall positions caused by pose drift.
  *
- * Coordinate system: ARCore world X,Z plane (Y is up/gravity).
+ * Coordinate system: world X,Z plane (Y is up/gravity).
  */
 class OccupancyGrid(
     val cellSize: Float = 0.10f // 10cm resolution — matches ~5cm drift so walls stay 1 cell thick

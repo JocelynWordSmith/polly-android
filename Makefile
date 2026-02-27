@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: build deploy deploy-restart clean \
+.PHONY: build deploy deploy-restart clean test lint lint-fix \
 	robot-cmd robot-status robot-log robot-restart robot-app-restart \
 	arena-snap arena-video pull-dataset
 
@@ -16,6 +16,15 @@ deploy-restart: deploy
 	@sleep 1
 	@adb shell am start -n com.robotics.polly/.MainActivity
 	@echo "Deployed and restarted"
+
+test:
+	./gradlew test
+
+lint:
+	./gradlew lint
+
+lint-fix:
+	./gradlew lintFix
 
 # === Robot Control (ADB) ===
 

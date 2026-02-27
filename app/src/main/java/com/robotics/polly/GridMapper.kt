@@ -1,7 +1,6 @@
 package com.robotics.polly
 
 import android.util.Log
-import com.google.ar.core.Pose
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.CopyOnWriteArrayList
@@ -12,17 +11,16 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Fuses ARCore 6-DOF pose and forward-facing ultrasonic distance
+ * Fuses 6-DOF pose and forward-facing ultrasonic distance
  * into a 2D OccupancyGrid.
  *
  * Includes scan-to-scan matching for drift correction: periodic 360° scans
  * are compared to the reference scan, and the position offset is applied
- * to correct accumulated ARCore drift.
+ * to correct accumulated pose drift.
  *
- * Coordinate convention:
- * - ARCore is OpenGL: X=right, Y=up, Z=towards user
- * - Camera/robot faces -Z direction in local frame
- * - 2D grid uses the (X, Z) horizontal plane
+ * Coordinate convention (OpenGL): X=right, Y=up, Z=towards user.
+ * Camera/robot faces -Z direction in local frame.
+ * 2D grid uses the (X, Z) horizontal plane.
  */
 class GridMapper {
 
@@ -31,7 +29,7 @@ class GridMapper {
     /** Listeners notified on each grid update (for UI refresh). */
     val onGridUpdated = CopyOnWriteArrayList<() -> Unit>()
 
-    // Source-agnostic pose state (set by onPose from ARCore or relay)
+    // Source-agnostic pose state (set by onPose from any pose provider)
     @Volatile private var poseTx = 0f
     @Volatile private var poseTy = 0f
     @Volatile private var poseTz = 0f
@@ -75,12 +73,7 @@ class GridMapper {
 
     @Volatile private var latestPoseTimestampNs = 0L
 
-    /** Called by ARCoreBridge on each tracked frame (~30fps). */
-    fun onPose(pose: Pose, timestampNs: Long = 0L) {
-        onPose(pose.tx(), pose.ty(), pose.tz(), pose.qx(), pose.qy(), pose.qz(), pose.qw(), timestampNs)
-    }
-
-    /** Called with raw pose from relay (OKVIS2 via PC) or any other source. */
+    /** Called with raw pose floats from any source. */
     fun onPose(tx: Float, ty: Float, tz: Float, qx: Float, qy: Float, qz: Float, qw: Float, timestampNs: Long = 0L) {
         poseTx = tx; poseTy = ty; poseTz = tz
         poseQx = qx; poseQy = qy; poseQz = qz; poseQw = qw
@@ -334,7 +327,5 @@ class GridMapper {
             return atan2(fwdZ, fwdX)
         }
 
-        fun extractHeading(pose: Pose): Float =
-            extractHeading(pose.qx(), pose.qy(), pose.qz(), pose.qw())
     }
 }
