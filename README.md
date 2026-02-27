@@ -92,7 +92,6 @@ polly-android/
 │   │   ├── MainActivity.kt           # App entry point
 │   │   ├── PixelSensorsFragment.kt   # Phone sensors UI
 │   │   ├── ArduinoSensorsFragment.kt # Robot sensors UI
-│   │   ├── LidarFragment.kt          # LIDAR page (future)
 │   │   ├── UsbSerialManager.kt       # USB communication + auto-reconnect
 │   │   ├── PollyServer.kt            # HTTP/web server
 │   │   ├── LogManager.kt             # Centralized logging
@@ -217,7 +216,6 @@ implementation 'androidx.viewpager2:viewpager2:1.0.0'
 
 ## Future Plans
 
-- [ ] **LIDAR Integration** - SLAMTEC A1 for 360° mapping
 - [ ] **Autonomous Modes** - obstacle avoidance
 - [ ] **3D Visualization** - Robot orientation with IMU data
 - [ ] **Sensor Graphs** - Real-time charts for accelerometer/gyro
@@ -237,7 +235,7 @@ Built with ❤️ using:
 
 ## License
 
-**License TBD.** This project integrates third-party SDKs (planned: FLIR One Gen 3, SLAMTEC LIDAR) whose licensing terms are being evaluated. An appropriate license will be added once SDK requirements are clear.
+**License TBD.** This project integrates third-party SDKs (FLIR One Gen 3) whose licensing terms are being evaluated. An appropriate license will be added once SDK requirements are clear.
 
 ---
 

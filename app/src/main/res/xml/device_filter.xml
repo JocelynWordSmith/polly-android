@@ -14,10 +14,5 @@
     <usb-device vendor-id="2507" />
     <!-- Alternative FLIR vendor ID -->
     <usb-device vendor-id="9899" />
-    
-    <!-- RPLIDAR A1 (CP2102 USB-UART) -->
-    <!-- Silicon Labs CP210x -->
-    <usb-device vendor-id="4292" product-id="60000" />
-    <!-- Generic CP210x -->
-    <usb-device vendor-id="4292" />
+
 </resources>

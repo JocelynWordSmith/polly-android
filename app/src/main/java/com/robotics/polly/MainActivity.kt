@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         // Setup ViewPager — pre-load all pages so listeners register early
         val adapter = ViewPagerAdapter(this)
         viewPager.adapter = adapter
-        viewPager.offscreenPageLimit = 2
+        viewPager.offscreenPageLimit = 3
 
         // Sync ViewPager with BottomNav
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
@@ -65,6 +65,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_bridge -> viewPager.currentItem = 0
                 R.id.nav_devices -> viewPager.currentItem = 1
                 R.id.nav_logs -> viewPager.currentItem = 2
+                R.id.nav_map -> viewPager.currentItem = 3
             }
             true
         }
@@ -91,21 +92,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_settings -> {
-                showSettingsDialog()
-                true
-            }
             R.id.action_restart -> {
                 restartApp()
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
-    }
-
-    private fun showSettingsDialog() {
-        val intent = Intent(this, SettingsActivity::class.java)
-        startActivity(intent)
     }
 
     private fun restartApp() {

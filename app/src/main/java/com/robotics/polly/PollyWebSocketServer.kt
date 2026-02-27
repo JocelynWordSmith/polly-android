@@ -10,13 +10,12 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
 
     // Per-endpoint client tracking
     val arduinoClients = CopyOnWriteArrayList<WebSocket>()
-    val lidarClients = CopyOnWriteArrayList<WebSocket>()
     val cameraClients = CopyOnWriteArrayList<WebSocket>()
     val flirClients = CopyOnWriteArrayList<WebSocket>()
     val imuClients = CopyOnWriteArrayList<WebSocket>()
     val controlClients = CopyOnWriteArrayList<WebSocket>()
-
     var onControlMessage: ((String) -> Unit)? = null
+    var firmwareUploader: FirmwareUploader? = null
 
     override fun openWebSocket(handshake: IHTTPSession): WebSocket {
         val uri = handshake.uri
@@ -24,12 +23,13 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
 
         return when (uri) {
             "/arduino" -> TrackedWebSocket(handshake, arduinoClients, "arduino")
-            "/lidar" -> TrackedWebSocket(handshake, lidarClients, "lidar")
             "/camera" -> TrackedWebSocket(handshake, cameraClients, "camera")
             "/flir" -> TrackedWebSocket(handshake, flirClients, "flir")
             "/imu" -> TrackedWebSocket(handshake, imuClients, "imu")
             "/control" -> ControlWebSocket(handshake)
-            else -> TrackedWebSocket(handshake, arduinoClients, "default")
+            "/firmware" -> firmwareUploader?.createWebSocket(handshake)
+                ?: TrackedWebSocket(handshake, arduinoClients, "firmware-unavail")
+            else -> RejectWebSocket(handshake, uri)
         }
     }
 
@@ -56,13 +56,15 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
     }
 
     private fun buildStatusJson(): String {
-        return """{"server":"polly-bridge","endpoints":{""" +
+        return """{"server":"polly-bridge",""" +
+            """"app_version":"${BuildConfig.VERSION_NAME}",""" +
+            """"endpoints":{""" +
             """"arduino":{"clients":${arduinoClients.size}},""" +
-            """"lidar":{"clients":${lidarClients.size}},""" +
             """"camera":{"clients":${cameraClients.size}},""" +
             """"flir":{"clients":${flirClients.size}},""" +
             """"imu":{"clients":${imuClients.size}},""" +
-            """"control":{"clients":${controlClients.size}}}}"""
+            """"control":{"clients":${controlClients.size}},""" +
+            """"firmware":{"clients":${firmwareUploader?.firmwareClients?.size ?: 0}}}}"""
     }
 
     fun broadcastText(clients: CopyOnWriteArrayList<WebSocket>, message: String) {
@@ -88,8 +90,9 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
     }
 
     fun totalClientCount(): Int {
-        return arduinoClients.size + lidarClients.size + cameraClients.size +
-            flirClients.size + imuClients.size + controlClients.size
+        return arduinoClients.size + cameraClients.size +
+            flirClients.size + imuClients.size + controlClients.size +
+            (firmwareUploader?.firmwareClients?.size ?: 0)
     }
 
     // WebSocket that tracks itself in a client list
@@ -155,6 +158,23 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
             controlClients.remove(this)
             Log.w(TAG, "[control] Client error: ${exception.message}")
         }
+    }
+
+    // WebSocket that immediately closes on unknown endpoints
+    inner class RejectWebSocket(
+        handshake: IHTTPSession,
+        private val uri: String
+    ) : WebSocket(handshake) {
+        override fun onOpen() {
+            Log.w(TAG, "Rejecting unknown endpoint: $uri")
+            try {
+                close(NanoWSD.WebSocketFrame.CloseCode.PolicyViolation, "Unknown endpoint: $uri", false)
+            } catch (_: IOException) {}
+        }
+        override fun onClose(code: NanoWSD.WebSocketFrame.CloseCode, reason: String, initiatedByRemote: Boolean) {}
+        override fun onMessage(message: NanoWSD.WebSocketFrame) {}
+        override fun onPong(pong: NanoWSD.WebSocketFrame) {}
+        override fun onException(exception: IOException) {}
     }
 
     companion object {

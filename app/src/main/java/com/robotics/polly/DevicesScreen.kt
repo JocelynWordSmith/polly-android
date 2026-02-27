@@ -23,7 +23,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 
@@ -44,19 +43,12 @@ fun DevicesScreen() {
     var phoneGy by remember { mutableStateOf(0f) }
     var phoneGz by remember { mutableStateOf(0f) }
 
-    // LIDAR state
-    var lidarConnected by remember { mutableStateOf(false) }
-    var lidarPointCount by remember { mutableIntStateOf(0) }
-    val lidarViewRef = remember { mutableStateOf<LidarView?>(null) }
-    val lidarParser = remember { LidarParser() }
-
     // FLIR state
     var flirConnected by remember { mutableStateOf(false) }
     var thermalBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     // Listener refs for cleanup
     val arduinoListenerRef = remember { mutableStateOf<((String) -> Unit)?>(null) }
-    val lidarListenerRef = remember { mutableStateOf<((ByteArray) -> Unit)?>(null) }
     val flirListenerRef = remember { mutableStateOf<((Bitmap) -> Unit)?>(null) }
 
     // Phone IMU via SensorManager
@@ -106,15 +98,6 @@ fun DevicesScreen() {
         service.getArduinoBridge()?.localListeners?.add(aListener)
         arduinoListenerRef.value = aListener
 
-        // LIDAR listener
-        val lListener: (ByteArray) -> Unit = { data ->
-            lidarParser.feed(data, lidarViewRef.value) { count ->
-                lidarPointCount = count
-            }
-        }
-        service.getLidarBridge()?.localListeners?.add(lListener)
-        lidarListenerRef.value = lListener
-
         // FLIR listener
         val fListener: (Bitmap) -> Unit = { thermalBitmap = it }
         service.getFlirBridge()?.localListeners?.add(fListener)
@@ -123,7 +106,6 @@ fun DevicesScreen() {
         // Poll connection status
         while (true) {
             arduinoConnected = service.getArduinoBridge()?.isConnected == true
-            lidarConnected = service.getLidarBridge()?.isConnected == true
             flirConnected = service.getFlirBridge()?.isConnected == true
             delay(2000)
         }
@@ -134,7 +116,6 @@ fun DevicesScreen() {
         onDispose {
             val service = activity?.getBridgeService()
             arduinoListenerRef.value?.let { service?.getArduinoBridge()?.localListeners?.remove(it) }
-            lidarListenerRef.value?.let { service?.getLidarBridge()?.localListeners?.remove(it) }
             flirListenerRef.value?.let { service?.getFlirBridge()?.localListeners?.remove(it) }
         }
     }
@@ -164,26 +145,11 @@ fun DevicesScreen() {
                 .weight(1f)
                 .padding(start = 6.dp)
         ) {
-            // LIDAR map
-            VisualCard(
-                title = "LIDAR",
-                subtitle = if (lidarConnected) "$lidarPointCount pts" else null,
-                connected = lidarConnected,
-                modifier = Modifier.weight(0.6f)
-            ) {
-                AndroidView(
-                    factory = { ctx -> LidarView(ctx).also { lidarViewRef.value = it } },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
             // Thermal camera
             VisualCard(
                 title = "THERMAL",
                 connected = flirConnected,
-                modifier = Modifier.weight(0.4f)
+                modifier = Modifier.weight(1f)
             ) {
                 val bmp = thermalBitmap
                 if (bmp != null) {
@@ -395,48 +361,3 @@ private fun PhoneImuCard(ax: Float, ay: Float, az: Float, gx: Float, gy: Float, 
     }
 }
 
-// -- LIDAR packet parser --
-
-private class LidarParser {
-    val buffer = ByteArray(4096)
-    var bufferPos = 0
-    val points = mutableListOf<LidarPoint>()
-
-    fun feed(data: ByteArray, view: LidarView?, onCount: (Int) -> Unit) {
-        for (b in data) {
-            if (bufferPos < buffer.size) buffer[bufferPos++] = b
-            else bufferPos = 0
-        }
-        while (bufferPos >= 5) {
-            val b0 = buffer[0].toInt() and 0xFF
-            val b1 = buffer[1].toInt() and 0xFF
-            val b2 = buffer[2].toInt() and 0xFF
-            val startBit = b0 and 0x01
-            val checkBit = b2 and 0x01
-            val invertedStart = (b0 shr 1) and 0x01
-            if (startBit != checkBit || invertedStart != (1 - startBit)) {
-                System.arraycopy(buffer, 1, buffer, 0, bufferPos - 1)
-                bufferPos--
-                continue
-            }
-            val quality = (b0 shr 2) and 0x3F
-            val angle = (((b2 shr 1 and 0x7F) shl 8) or b1).toFloat() / 64f
-            val distance = (((buffer[4].toInt() and 0xFF) shl 8) or
-                (buffer[3].toInt() and 0xFF)).toFloat() / 4f
-            if (quality > 0 && distance > 10 && distance < 12000) {
-                synchronized(points) {
-                    points.add(LidarPoint(angle, distance, quality))
-                    if (points.size % 100 == 0) {
-                        view?.updatePoints(ArrayList(points))
-                        onCount(points.size)
-                    }
-                    if (points.size > 5000) {
-                        repeat(points.size - 5000) { points.removeAt(0) }
-                    }
-                }
-            }
-            System.arraycopy(buffer, 5, buffer, 0, bufferPos - 5)
-            bufferPos -= 5
-        }
-    }
-}

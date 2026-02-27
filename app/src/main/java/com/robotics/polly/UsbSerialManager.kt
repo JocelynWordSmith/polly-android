@@ -371,20 +371,22 @@ class UsbSerialManager(private val context: Context) {
     }
 
     private fun scheduleReconnect() {
-        if (reconnectAttempts >= maxReconnectAttempts) {
-            Log.e(TAG, "Max reconnection attempts ($maxReconnectAttempts) reached")
-            onConnectionChanged?.invoke(false, "Connection lost - max retries exceeded")
-            return
-        }
-
         reconnectAttempts++
-        Log.i(TAG, "Scheduling reconnection attempt $reconnectAttempts/$maxReconnectAttempts in ${reconnectDelayMs}ms")
-        onConnectionChanged?.invoke(false, "Reconnecting... (attempt $reconnectAttempts/$maxReconnectAttempts)")
+        Log.i(TAG, "Scheduling reconnection attempt $reconnectAttempts in ${reconnectDelayMs}ms")
+        onConnectionChanged?.invoke(false, "Reconnecting... (attempt $reconnectAttempts)")
 
         handler.postDelayed({
             Log.d(TAG, "Attempting reconnection...")
             findAndConnect()
         }, reconnectDelayMs)
+    }
+
+    /** Called by BridgeService reconnect watchdog when not connected. */
+    fun reconnect() {
+        if (isConnected || !autoReconnect) return
+        Log.d(TAG, "External reconnect requested")
+        reconnectAttempts = 0
+        findAndConnect()
     }
 
     fun resetReconnectAttempts() {
@@ -403,6 +405,39 @@ class UsbSerialManager(private val context: Context) {
     }
 
     fun isConnected() = isConnected
+
+    /** Returns the raw serial port for direct access (e.g., firmware programming). */
+    fun getPort(): UsbSerialPort? = serialPort
+
+    /**
+     * Stops read/write threads without closing the port.
+     * Used to take exclusive serial access for firmware programming.
+     */
+    fun pauseThreads() {
+        Log.d(TAG, "Pausing read/write threads")
+        writeThreadRunning = false
+        writeThread?.interrupt()
+        writeThread = null
+        writeQueue.clear()
+
+        readThreadRunning = false
+        readThread?.interrupt()
+        readThread = null
+    }
+
+    /**
+     * Restarts read/write threads after exclusive access is released.
+     * Port must still be open.
+     */
+    fun resumeThreads() {
+        if (serialPort == null) {
+            Log.w(TAG, "Cannot resume threads — port is null")
+            return
+        }
+        Log.d(TAG, "Resuming read/write threads")
+        startReadThread()
+        startWriteThread()
+    }
 
     companion object {
         private const val TAG = "UsbSerialManager"

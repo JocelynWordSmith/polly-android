@@ -11,7 +11,7 @@ class ViewPagerAdapter(activity: FragmentActivity) : FragmentStateAdapter(activi
         private const val TAG = "ViewPagerAdapter"
     }
     
-    override fun getItemCount(): Int = 3
+    override fun getItemCount(): Int = 4
 
     override fun createFragment(position: Int): Fragment {
         Log.d(TAG, "createFragment called for position $position")
@@ -19,6 +19,7 @@ class ViewPagerAdapter(activity: FragmentActivity) : FragmentStateAdapter(activi
             0 -> PollyFragmentCompose()        // Bridge status
             1 -> DevicesFragmentCompose()      // Combined device view
             2 -> LogsFragmentCompose()         // Logs
+            3 -> MapFragmentCompose()          // Occupancy map
             else -> PollyFragmentCompose()
         }
         Log.d(TAG, "Created fragment: ${fragment.javaClass.simpleName} for position $position")
