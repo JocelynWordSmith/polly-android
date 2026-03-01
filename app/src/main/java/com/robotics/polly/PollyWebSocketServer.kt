@@ -56,8 +56,14 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
     }
 
     private fun buildStatusJson(): String {
+        val service = BridgeService.instance
+        val adbPort = service?.getAdbPort() ?: -1
+        val ip = service?.getLocalIpAddress() ?: "unknown"
+        val adbConnect = if (adbPort > 0) "$ip:$adbPort" else "unavailable"
         return """{"server":"polly-bridge",""" +
             """"app_version":"${BuildConfig.VERSION_NAME}",""" +
+            """"ip":"$ip",""" +
+            """"adb":{"connect":"$adbConnect","port":$adbPort},""" +
             """"endpoints":{""" +
             """"arduino":{"clients":${arduinoClients.size}},""" +
             """"camera":{"clients":${cameraClients.size}},""" +

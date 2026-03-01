@@ -2,6 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: build deploy deploy-restart clean test lint lint-fix \
 	robot-cmd robot-status robot-log robot-restart robot-app-restart \
+	robot-connect robot-setup \
 	arena-snap arena-video pull-dataset
 
 # === Build & Deploy ===
@@ -50,6 +51,18 @@ robot-restart robot-app-restart:
 	@sleep 1
 	@adb shell am start -n com.robotics.polly/.MainActivity
 	@echo "App restarted"
+
+# Connect to robot wirelessly via ADB (no USB needed).
+# Usage: make robot-connect IP=192.168.0.170
+robot-connect:
+	@test -n "$(IP)" || (echo "Usage: make robot-connect IP=<phone-ip>"; exit 1)
+	@echo "Connecting to $(IP):5555..."
+	@adb connect "$(IP):5555"
+
+# Enable ADB over TCP (requires USB). Run after each reboot, or use robot-setup.
+robot-setup:
+	adb tcpip 5555
+	@echo "ADB TCP enabled on port 5555. Run 'make robot-connect IP=<phone-ip>' to connect wirelessly."
 
 # === Arena (remote testing) ===
 # Webcam device — override with ARENA_CAM=/dev/videoN

@@ -61,6 +61,8 @@ class BridgeService : Service() {
         startReconnectWatchdog()
     }
 
+    fun getAdbPort(): Int = ADB_TCP_PORT
+
     private fun startNotificationUpdater() {
         val updater = object : Runnable {
             override fun run() {
@@ -372,10 +374,12 @@ class BridgeService : Service() {
 
     fun getStatus(): Map<String, Any> {
         val server = wsServer
+        val adbPort = getAdbPort()
+        val ip = getLocalIpAddress()
         return mapOf(
             "running" to (server != null),
             "port" to wsPort,
-            "ip" to getLocalIpAddress(),
+            "ip" to ip,
             "clients" to (server?.totalClientCount() ?: 0),
             "arduinoConnected" to (arduinoBridge?.isConnected ?: false),
             "arduinoRetryExhausted" to arduinoRetryExhausted,
@@ -384,6 +388,10 @@ class BridgeService : Service() {
             "cameraConnected" to (cameraBridge?.isConnected ?: false),
             "mapMode" to mapMode,
             "imuConnected" to (imuBridge?.isConnected ?: false),
+            "adb" to mapOf(
+                "connect" to if (adbPort > 0) "$ip:$adbPort" else "unavailable",
+                "port" to adbPort
+            ),
             "endpoints" to mapOf(
                 "arduino" to (server?.arduinoClients?.size ?: 0),
                 "camera" to (server?.cameraClients?.size ?: 0),
@@ -492,6 +500,7 @@ class BridgeService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val RETRY_DELAY_MS = 3_000L
         private const val MAX_RETRIES = 3
+        const val ADB_TCP_PORT = 5555
 
         /** Singleton ref for RemoteCommandReceiver. Set in onCreate/onDestroy. */
         var instance: BridgeService? = null
