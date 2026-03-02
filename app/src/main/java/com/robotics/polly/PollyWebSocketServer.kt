@@ -3,8 +3,10 @@ package com.robotics.polly
 import android.util.Log
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoWSD
+import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
 
 class PollyWebSocketServer(port: Int) : NanoWSD(port) {
 
@@ -14,6 +16,7 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
     val flirClients = CopyOnWriteArrayList<WebSocket>()
     val imuClients = CopyOnWriteArrayList<WebSocket>()
     val controlClients = CopyOnWriteArrayList<WebSocket>()
+    val logClients = CopyOnWriteArrayList<WebSocket>()
     var onControlMessage: ((String) -> Unit)? = null
     var firmwareUploader: FirmwareUploader? = null
 
@@ -27,6 +30,7 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
             "/flir" -> TrackedWebSocket(handshake, flirClients, "flir")
             "/imu" -> TrackedWebSocket(handshake, imuClients, "imu")
             "/control" -> ControlWebSocket(handshake)
+            "/logs" -> LogWebSocket(handshake)
             "/firmware" -> firmwareUploader?.createWebSocket(handshake)
                 ?: TrackedWebSocket(handshake, arduinoClients, "firmware-unavail")
             else -> RejectWebSocket(handshake, uri)
@@ -37,6 +41,23 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
         // Handle non-WebSocket HTTP requests
         if (!isWebsocketRequested(session)) {
             return when (session.uri) {
+                "/" -> {
+                    val html = BridgeService.instance?.assets?.open("dashboard.html")
+                        ?.bufferedReader()?.readText()
+                    if (html != null) {
+                        NanoHTTPD.newFixedLengthResponse(
+                            NanoHTTPD.Response.Status.OK,
+                            "text/html",
+                            html
+                        )
+                    } else {
+                        NanoHTTPD.newFixedLengthResponse(
+                            NanoHTTPD.Response.Status.INTERNAL_ERROR,
+                            NanoHTTPD.MIME_PLAINTEXT,
+                            "Dashboard not found"
+                        )
+                    }
+                }
                 "/status" -> {
                     val json = buildStatusJson()
                     NanoHTTPD.newFixedLengthResponse(
@@ -70,6 +91,7 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
             """"flir":{"clients":${flirClients.size}},""" +
             """"imu":{"clients":${imuClients.size}},""" +
             """"control":{"clients":${controlClients.size}},""" +
+            """"logs":{"clients":${logClients.size}},""" +
             """"firmware":{"clients":${firmwareUploader?.firmwareClients?.size ?: 0}}}}"""
     }
 
@@ -98,7 +120,7 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
     fun totalClientCount(): Int {
         return arduinoClients.size + cameraClients.size +
             flirClients.size + imuClients.size + controlClients.size +
-            (firmwareUploader?.firmwareClients?.size ?: 0)
+            logClients.size + (firmwareUploader?.firmwareClients?.size ?: 0)
     }
 
     // WebSocket that tracks itself in a client list
@@ -166,6 +188,59 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
         }
     }
 
+    // Log streaming WebSocket
+    inner class LogWebSocket(handshake: IHTTPSession) : WebSocket(handshake) {
+        private var logListener: ((LogManager.LogEntry) -> Unit)? = null
+
+        override fun onOpen() {
+            logClients.add(this)
+            Log.d(TAG, "[logs] Client connected (${logClients.size} total)")
+
+            // Backfill existing log buffer (onOpen runs on NanoHTTPD thread, safe for network)
+            for (entry in LogManager.getLogs()) {
+                try { send(entryToJson(entry)) } catch (_: IOException) {}
+            }
+
+            // Register for new entries — send from background thread since
+            // LogManager.log() can be called from main thread
+            val listener: (LogManager.LogEntry) -> Unit = { entry ->
+                logExecutor.execute {
+                    try { send(entryToJson(entry)) } catch (_: IOException) {
+                        logClients.remove(this)
+                        logListener?.let { LogManager.removeListener(it) }
+                        logListener = null
+                    }
+                }
+            }
+            logListener = listener
+            LogManager.addListener(listener)
+        }
+
+        override fun onClose(code: NanoWSD.WebSocketFrame.CloseCode, reason: String, initiatedByRemote: Boolean) {
+            logClients.remove(this)
+            logListener?.let { LogManager.removeListener(it) }
+            logListener = null
+            Log.d(TAG, "[logs] Client disconnected (${logClients.size} remaining)")
+        }
+
+        override fun onMessage(message: NanoWSD.WebSocketFrame) {}
+        override fun onPong(pong: NanoWSD.WebSocketFrame) {}
+
+        override fun onException(exception: IOException) {
+            logClients.remove(this)
+            logListener?.let { LogManager.removeListener(it) }
+            logListener = null
+        }
+
+        private fun entryToJson(entry: LogManager.LogEntry): String {
+            return JSONObject().apply {
+                put("ts", entry.timestamp)
+                put("level", entry.level.name)
+                put("msg", entry.message)
+            }.toString()
+        }
+    }
+
     // WebSocket that immediately closes on unknown endpoints
     inner class RejectWebSocket(
         handshake: IHTTPSession,
@@ -185,5 +260,6 @@ class PollyWebSocketServer(port: Int) : NanoWSD(port) {
 
     companion object {
         private const val TAG = "PollyWS"
+        private val logExecutor = Executors.newSingleThreadExecutor()
     }
 }

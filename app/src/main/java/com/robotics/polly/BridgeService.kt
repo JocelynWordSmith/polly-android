@@ -38,6 +38,8 @@ class BridgeService : Service() {
     private var wanderController: WanderController? = null
     private var frontierController: FrontierController? = null
     private var datasetRecorder: DatasetRecorder? = null
+    var gamepadController: GamepadController? = null
+        private set
     private val wanderScope = CoroutineScope(Dispatchers.Default)
     private val handler = Handler(Looper.getMainLooper())
 
@@ -181,6 +183,21 @@ class BridgeService : Service() {
 
         arduinoBridge = ArduinoBridge(this, server)
         arduinoBridge?.start()
+
+        // Gamepad controller for Xbox controller via Bluetooth
+        arduinoBridge?.let { arduino ->
+            val gp = GamepadController(arduino) {
+                // Stop autonomous modes when gamepad input received
+                handler.post {
+                    when {
+                        isExploring() -> stopExploreMode()
+                        isWandering() -> stopWanderMode()
+                    }
+                }
+            }
+            arduino.localListeners.add(gp.arduinoListener)
+            gamepadController = gp
+        }
 
         flirBridge = FlirBridge(this, server)
         // FLIR auto-start disabled — hardware disconnected. Use retryBridge("flir") to start manually.
@@ -359,6 +376,55 @@ class BridgeService : Service() {
                         }
                     }
                 }
+                "service" -> {
+                    val cmd = json.optString("cmd", "")
+                    handler.post {
+                        val result = org.json.JSONObject()
+                        result.put("type", "cmd_result")
+                        result.put("cmd", cmd)
+                        when (cmd) {
+                            "start_map" -> { startMapMode(); result.put("ok", true) }
+                            "stop_map" -> { stopMapMode(); result.put("ok", true) }
+                            "start_wander" -> { startWanderMode(); result.put("ok", true) }
+                            "stop_wander" -> { stopWanderMode(); result.put("ok", true) }
+                            "start_explore" -> { startExploreMode(); result.put("ok", true) }
+                            "stop_explore" -> { stopExploreMode(); result.put("ok", true) }
+                            "start_recording" -> {
+                                val dir = startRecording()
+                                result.put("ok", dir != null)
+                                if (dir != null) result.put("dir", dir)
+                            }
+                            "stop_recording" -> { stopRecording(); result.put("ok", true) }
+                            "retry_arduino" -> { retryBridge("arduino"); result.put("ok", true) }
+                            "retry_flir" -> { retryBridge("flir"); result.put("ok", true) }
+                            "stop" -> {
+                                when {
+                                    isExploring() -> stopExploreMode()
+                                    isWandering() -> stopWanderMode()
+                                    mapMode -> stopMapMode()
+                                }
+                                result.put("ok", true)
+                            }
+                            "get_status" -> {
+                                val status = getStatusJson()
+                                for (key in status.keys()) result.put(key, status.get(key))
+                                result.put("wandering", isWandering())
+                                result.put("exploring", isExploring())
+                                result.put("explorationComplete", isExplorationComplete())
+                                result.put("recording", isRecording())
+                                if (isRecording()) {
+                                    result.put("recordedFrames", getRecordedFrameCount())
+                                }
+                            }
+                            else -> result.put("error", "unknown cmd: $cmd")
+                        }
+                        val server = wsServer
+                        val response = result.toString()
+                        if (server != null) {
+                            Thread { server.broadcastText(server.controlClients, response) }.start()
+                        }
+                    }
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Invalid control message: ${e.message}")
@@ -387,19 +453,39 @@ class BridgeService : Service() {
             "flirRetryExhausted" to flirRetryExhausted,
             "cameraConnected" to (cameraBridge?.isConnected ?: false),
             "mapMode" to mapMode,
-            "imuConnected" to (imuBridge?.isConnected ?: false),
-            "adb" to mapOf(
-                "connect" to if (adbPort > 0) "$ip:$adbPort" else "unavailable",
-                "port" to adbPort
-            ),
-            "endpoints" to mapOf(
-                "arduino" to (server?.arduinoClients?.size ?: 0),
-                "camera" to (server?.cameraClients?.size ?: 0),
-                "flir" to (server?.flirClients?.size ?: 0),
-                "imu" to (server?.imuClients?.size ?: 0),
-                "control" to (server?.controlClients?.size ?: 0)
-            )
+            "imuConnected" to (imuBridge?.isConnected ?: false)
         )
+    }
+
+    fun getStatusJson(): org.json.JSONObject {
+        val server = wsServer
+        val adbPort = getAdbPort()
+        val ip = getLocalIpAddress()
+        return org.json.JSONObject().apply {
+            put("running", server != null)
+            put("port", wsPort)
+            put("ip", ip)
+            put("clients", server?.totalClientCount() ?: 0)
+            put("arduinoConnected", arduinoBridge?.isConnected ?: false)
+            put("arduinoRetryExhausted", arduinoRetryExhausted)
+            put("flirConnected", flirBridge?.isConnected ?: false)
+            put("flirRetryExhausted", flirRetryExhausted)
+            put("cameraConnected", cameraBridge?.isConnected ?: false)
+            put("mapMode", mapMode)
+            put("imuConnected", imuBridge?.isConnected ?: false)
+            put("adb", org.json.JSONObject().apply {
+                put("connect", if (adbPort > 0) "$ip:$adbPort" else "unavailable")
+                put("port", adbPort)
+            })
+            put("endpoints", org.json.JSONObject().apply {
+                put("arduino", server?.arduinoClients?.size ?: 0)
+                put("camera", server?.cameraClients?.size ?: 0)
+                put("flir", server?.flirClients?.size ?: 0)
+                put("imu", server?.imuClients?.size ?: 0)
+                put("control", server?.controlClients?.size ?: 0)
+                put("logs", server?.logClients?.size ?: 0)
+            })
+        }
     }
 
     fun getLocalIpAddress(): String {
@@ -474,6 +560,9 @@ class BridgeService : Service() {
         mapArduinoListener?.let { arduinoBridge?.localListeners?.remove(it) }
         mapArduinoListener = null
         gridMapper = null
+
+        gamepadController?.let { arduinoBridge?.localListeners?.remove(it.arduinoListener) }
+        gamepadController = null
 
         imuBridge?.stop()
         imuBridge = null

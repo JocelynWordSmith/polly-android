@@ -112,8 +112,8 @@ class RemoteCommandReceiver : BroadcastReceiver() {
                 result.put("ok", true)
             }
             "get_status" -> {
-                val status = service.getStatus()
-                for ((k, v) in status) result.put(k, v)
+                val status = service.getStatusJson()
+                for (key in status.keys()) result.put(key, status.get(key))
                 result.put("wandering", service.isWandering())
                 result.put("exploring", service.isExploring())
                 result.put("explorationComplete", service.isExplorationComplete())

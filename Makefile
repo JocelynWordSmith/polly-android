@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: build deploy deploy-restart clean test lint lint-fix \
 	robot-cmd robot-status robot-log robot-restart robot-app-restart \
-	robot-connect robot-setup \
+	robot-connect robot-setup dashboard \
 	arena-snap arena-video pull-dataset
 
 # === Build & Deploy ===
@@ -63,6 +63,12 @@ robot-connect:
 robot-setup:
 	adb tcpip 5555
 	@echo "ADB TCP enabled on port 5555. Run 'make robot-connect IP=<phone-ip>' to connect wirelessly."
+
+# Open the web dashboard in a browser. Usage: make dashboard IP=192.168.0.170
+dashboard:
+	@test -n "$(IP)" || (echo "Usage: make dashboard IP=<phone-ip>"; exit 1)
+	@echo "Opening http://$(IP):8080/"
+	@xdg-open "http://$(IP):8080/" 2>/dev/null || open "http://$(IP):8080/" 2>/dev/null || echo "Open http://$(IP):8080/ in your browser"
 
 # === Arena (remote testing) ===
 # Webcam device — override with ARENA_CAM=/dev/videoN

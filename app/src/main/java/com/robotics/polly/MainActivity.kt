@@ -6,8 +6,10 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Bundle
 import android.os.IBinder
+import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
+import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.viewpager2.widget.ViewPager2
@@ -107,6 +109,16 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
         finish()
         Runtime.getRuntime().exit(0)
+    }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (BridgeService.instance?.gamepadController?.handleMotionEvent(event) == true) return true
+        return super.dispatchGenericMotionEvent(event)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (BridgeService.instance?.gamepadController?.handleKeyEvent(event) == true) return true
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onDestroy() {

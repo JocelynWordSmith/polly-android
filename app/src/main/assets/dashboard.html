@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polly Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a1a; color: #e0e0e0; font-family: monospace; font-size: 14px; padding: 12px; }
+h1 { font-size: 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dot.on { background: #1B7340; }
+.dot.off { background: #B22222; }
+.card { background: #2a2a2a; border: 1px solid #444; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+.card h2 { font-size: 14px; margin-bottom: 8px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+.status-grid { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.status-item { display: flex; align-items: center; gap: 6px; }
+.status-item .sdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sdot.on { background: #1B7340; }
+.sdot.off { background: #B22222; }
+.sdot.warn { background: #DAA520; }
+.status-item .label { color: #e0e0e0; }
+.status-item .val { color: #888; }
+.connected { color: #1B7340; }
+.disconnected { color: #B22222; }
+.active { color: #DAA520; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 6px; }
+button { background: #333; color: #e0e0e0; border: 1px solid #555; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-family: monospace; font-size: 13px; }
+button:hover { background: #444; }
+button:active { background: #555; }
+button.danger { border-color: #B22222; color: #ff6666; }
+#camera-feed { max-width: 100%; border-radius: 4px; background: #000; display: block; }
+#log-container { max-height: 300px; overflow-y: auto; font-size: 12px; line-height: 1.6; }
+.log-INFO { color: #e0e0e0; }
+.log-SUCCESS { color: #1B7340; }
+.log-ERROR { color: #ff6666; }
+.log-WARN { color: #DAA520; }
+.log-TX { color: #888; }
+.log-RX { color: #888; }
+</style>
+</head>
+<body>
+
+<h1>POLLY <span id="ws-dot" class="dot off"></span></h1>
+
+<div class="card">
+  <h2>Status</h2>
+  <div class="status-grid" id="status-grid"></div>
+</div>
+
+<div class="card">
+  <h2>Controls</h2>
+  <div class="btn-row">
+    <button onclick="cmd('retry_arduino')">Retry Arduino</button>
+    <button onclick="cmd('retry_flir')">Retry FLIR</button>
+    <button onclick="cmd('start_map')">Start Map</button>
+    <button onclick="cmd('stop_map')">Stop Map</button>
+    <button onclick="cmd('start_wander')">Start Wander</button>
+    <button onclick="cmd('stop_wander')">Stop Wander</button>
+    <button onclick="cmd('start_explore')">Start Explore</button>
+    <button onclick="cmd('stop_explore')">Stop Explore</button>
+    <button onclick="cmd('start_recording')">Start Recording</button>
+    <button onclick="cmd('stop_recording')">Stop Recording</button>
+    <button onclick="cmd('stop')" class="danger">STOP ALL</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Camera</h2>
+  <img id="camera-feed" alt="No camera feed">
+</div>
+
+<div class="card">
+  <h2>Logs</h2>
+  <div id="log-container"></div>
+</div>
+
+<script>
+const host = location.host;
+let controlWs, cameraWs, logWs;
+
+function cmd(name) {
+  if (controlWs && controlWs.readyState === 1) {
+    controlWs.send(JSON.stringify({ target: 'service', cmd: name }));
+  }
+}
+
+function dot(on, label, extra) {
+  const cls = on ? 'on' : 'off';
+  const suffix = extra ? ' <span class="val">' + extra + '</span>' : '';
+  return '<div class="status-item"><span class="sdot ' + cls + '"></span><span class="label">' + label + '</span>' + suffix + '</div>';
+}
+
+function updateStatus(d) {
+  const g = document.getElementById('status-grid');
+  let html = '';
+  html += dot(d.arduinoConnected, 'Arduino');
+  html += dot(d.flirConnected, 'FLIR');
+  html += dot(d.cameraConnected, 'Camera');
+  html += dot(d.imuConnected, 'IMU');
+  html += dot(d.mapMode, 'Map');
+  html += dot(d.wandering, 'Wander');
+  html += dot(d.exploring, 'Explore');
+  html += dot(d.recording, 'Record', d.recording ? d.recordedFrames || 0 : null);
+  html += '<div class="status-item"><span class="label val">' + (d.clients || 0) + ' clients</span></div>';
+  g.innerHTML = html;
+}
+
+function connectControl() {
+  controlWs = new WebSocket('ws://' + host + '/control');
+  controlWs.onopen = function() {
+    document.getElementById('ws-dot').className = 'dot on';
+    cmd('get_status');
+  };
+  controlWs.onmessage = function(e) {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'cmd_result' && d.cmd === 'get_status') updateStatus(d);
+    } catch (_) {}
+  };
+  controlWs.onclose = function() {
+    document.getElementById('ws-dot').className = 'dot off';
+    setTimeout(connectControl, 2000);
+  };
+}
+
+function connectCamera() {
+  cameraWs = new WebSocket('ws://' + host + '/camera');
+  cameraWs.binaryType = 'blob';
+  cameraWs.onmessage = function(e) {
+    const img = document.getElementById('camera-feed');
+    const oldUrl = img.src;
+    img.src = URL.createObjectURL(e.data);
+    if (oldUrl && oldUrl.startsWith('blob:')) URL.revokeObjectURL(oldUrl);
+  };
+  cameraWs.onclose = function() { setTimeout(connectCamera, 3000); };
+}
+
+function connectLogs() {
+  logWs = new WebSocket('ws://' + host + '/logs');
+  logWs.onmessage = function(e) {
+    try {
+      const d = JSON.parse(e.data);
+      const c = document.getElementById('log-container');
+      const div = document.createElement('div');
+      div.className = 'log-' + d.level;
+      div.textContent = d.ts + ' [' + d.level + '] ' + d.msg;
+      c.appendChild(div);
+      // Keep last 200 entries
+      while (c.children.length > 200) c.removeChild(c.firstChild);
+      c.scrollTop = c.scrollHeight;
+    } catch (_) {}
+  };
+  logWs.onclose = function() { setTimeout(connectLogs, 2000); };
+}
+
+connectControl();
+connectCamera();
+connectLogs();
+
+// Poll status every 2s
+setInterval(function() { cmd('get_status'); }, 2000);
+</script>
+</body>
+</html>
